@@ -1,7 +1,456 @@
-# HR_KD
+# Human Resources Management System
 
-Members:
-Nguyễn Hoà Khang - Leader
-Đỗ Hoàng Ka - Member
-Phan Nguyễn Đăng Khoa - Member
-Trương Minh Đức - Member
+[![.NET](https://img.shields.io/badge/.NET-8.0-512BD4)](https://dotnet.microsoft.com/)
+[![ASP.NET Core MVC](https://img.shields.io/badge/ASP.NET%20Core-MVC-512BD4)](https://learn.microsoft.com/aspnet/core/mvc/)
+[![Entity Framework Core](https://img.shields.io/badge/Entity%20Framework-Core-512BD4)](https://learn.microsoft.com/ef/core/)
+[![SQL Server](https://img.shields.io/badge/Database-SQL%20Server-CC2927)](https://www.microsoft.com/sql-server)
+
+Human Resources Management System is an ASP.NET Core MVC application for managing employees, attendance, leave requests, payroll, organizational roles, approvals, and HR reports.
+
+The project supports role-based access and hierarchical management workflows for employees, employee managers, line managers, and directors.
+
+---
+
+## Table of Contents
+
+- [Overview](#overview)
+- [Technologies](#technologies)
+- [Main Features](#main-features)
+- [Roles and Authorization](#roles-and-authorization)
+- [Project Structure](#project-structure)
+- [Getting Started](#getting-started)
+- [Database Setup](#database-setup)
+- [Application Configuration](#application-configuration)
+- [Running the Application](#running-the-application)
+- [Reports and Export](#reports-and-export)
+- [Development Notes](#development-notes)
+- [Roadmap](#roadmap)
+- [Team](#team)
+- [Contributing](#contributing)
+- [Project Status](#project-status)
+- [Disclaimer](#disclaimer)
+
+---
+
+## Overview
+
+The application provides a centralized platform for common human resources operations:
+
+- Employee information management
+- Organizational role and permission management
+- Attendance management
+- Annual leave and holiday request processing
+- Multi-level approval workflows
+- Payroll calculation and approval
+- Employee hierarchy and subordinate management
+- Email notifications
+- Excel and PDF report generation
+- MVC pages and API controllers
+
+The application uses ASP.NET Core MVC, Entity Framework Core, SQL Server, Cookie Authentication, and policy-based authorization.
+
+---
+
+## Technologies
+
+### Backend
+
+- C#
+- .NET 8
+- ASP.NET Core MVC
+- ASP.NET Core Web API
+- Entity Framework Core
+- LINQ
+- Cookie Authentication
+- Policy-based Authorization
+- Hosted Services
+
+### Database
+
+- Microsoft SQL Server
+- Entity Framework Core Migrations
+
+### Frontend
+
+- Razor Views
+- HTML5
+- CSS3
+- JavaScript
+- Bootstrap
+
+### Libraries and Tools
+
+- BCrypt.Net for password hashing
+- ClosedXML for spreadsheet processing
+- EPPlus for Excel export
+- QuestPDF for PDF report generation
+- NETCore.MailKit for email delivery
+- Visual Studio 2022
+- Git and GitHub
+
+---
+
+## Main Features
+
+### Employee Management
+
+- Create and update employee profiles
+- Manage employee information and account status
+- Generate employee usernames
+- Organize employees by position and management level
+- View and manage subordinate employees based on authorization policies
+
+### Authentication and Authorization
+
+- Cookie-based authentication
+- Role-based access control
+- Policy-based authorization
+- Access-denied handling
+- Permission checks for employee management operations
+
+### Attendance Management
+
+- Track employee attendance
+- Manage attendance records
+- Restrict attendance operations based on assigned permissions
+
+### Leave and Holiday Management
+
+- Manage annual leave balances
+- Create leave and holiday requests
+- Approve requests through authorized management levels
+- Run scheduled annual leave processing tasks
+
+### Payroll Management
+
+- Calculate employee payroll
+- Create payroll records
+- Support multi-level payroll approval
+- Generate payroll reports
+
+### Notifications and Reports
+
+- Send HR-related email notifications
+- Export Excel reports
+- Generate PDF documents and reports
+
+---
+
+## Roles and Authorization
+
+The system defines several organizational roles:
+
+| Role | Description |
+|---|---|
+| `EMPLOYEE` | Standard employee access |
+| `EMPLOYEE_MANAGER` | Employee management access |
+| `LINE_MANAGER` | Line-level management and approval access |
+| `DIRECTOR` | Director-level management and approval access |
+
+The project also uses custom authorization policies for operations such as:
+
+- Viewing and creating employee records
+- Assigning employee roles
+- Managing attendance
+- Creating and approving leave requests
+- Creating payroll records
+- Approving payroll through multiple management levels
+
+---
+
+## Project Structure
+
+```text
+HRManagementSystem/
+├── ApiControllers/
+├── Authorization/
+├── Controllers/
+├── Data/
+├── DTOs/
+├── Helpers/
+├── Migrations/
+├── Models/
+├── Properties/
+├── Services/
+├── Status/
+├── Views/
+├── wwwroot/
+├── Program.cs
+├── appsettings.json
+└── HRManagementSystem.csproj
+
+HRManagementSystem.sln
+README.md
+```
+
+### Main Directories
+
+| Directory | Purpose |
+|---|---|
+| `ApiControllers` | API endpoints |
+| `Authorization` | Custom requirements, handlers, and permission policies |
+| `Controllers` | MVC request handling |
+| `Data` | Entity Framework Core database context and data configuration |
+| `DTOs` | Data transfer objects |
+| `Helpers` | Shared utility classes |
+| `Migrations` | Entity Framework Core database migrations |
+| `Models` | Application and database models |
+| `Services` | Business logic, payroll, email, reporting, and scheduled tasks |
+| `Status` | Shared status definitions |
+| `Views` | Razor Views |
+| `wwwroot` | Static files such as CSS, JavaScript, images, and avatars |
+
+---
+
+## Getting Started
+
+### Prerequisites
+
+Install the following tools:
+
+- [Visual Studio 2022](https://visualstudio.microsoft.com/)
+- [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0)
+- [Microsoft SQL Server](https://www.microsoft.com/sql-server/sql-server-downloads)
+- [SQL Server Management Studio](https://learn.microsoft.com/sql/ssms/download-sql-server-management-studio-ssms)
+- [Git](https://git-scm.com/)
+
+Verify the installed .NET SDK:
+
+```bash
+dotnet --version
+```
+
+The result should be version `8.x`.
+
+### Clone the Repository
+
+```bash
+git clone https://github.com/KAHOCCODE/HRManagementSystem.git
+cd HRManagementSystem
+```
+
+Restore dependencies:
+
+```bash
+dotnet restore HRManagementSystem.sln
+```
+
+Build the solution:
+
+```bash
+dotnet build HRManagementSystem.sln
+```
+
+---
+
+## Database Setup
+
+The application uses SQL Server and reads the connection string from:
+
+```text
+ConnectionStrings:Db_HR
+```
+
+### Apply Entity Framework Core Migrations
+
+Install the Entity Framework Core command-line tool when necessary:
+
+```bash
+dotnet tool install --global dotnet-ef
+```
+
+Apply the available migrations:
+
+```bash
+dotnet ef database update --project HRManagementSystem/HRManagementSystem.csproj
+```
+
+When using an existing SQL script or database backup, import or restore the database first and then apply any pending migrations.
+
+---
+
+## Application Configuration
+
+Use placeholders in tracked configuration files and store machine-specific or sensitive values outside the repository.
+
+Example `appsettings.json` structure:
+
+```json
+{
+  "ConnectionStrings": {
+    "Db_HR": "CONFIGURE_WITH_USER_SECRETS"
+  },
+  "EmailSettings": {
+    "SmtpServer": "smtp.gmail.com",
+    "Port": 587,
+    "SenderEmail": "CONFIGURE_WITH_USER_SECRETS",
+    "SenderPassword": "CONFIGURE_WITH_USER_SECRETS"
+  },
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft.AspNetCore": "Warning"
+    }
+  },
+  "AllowedHosts": "*"
+}
+```
+
+For local development, configuration can be stored with .NET User Secrets:
+
+```bash
+dotnet user-secrets init --project HRManagementSystem/HRManagementSystem.csproj
+```
+
+```bash
+dotnet user-secrets set "ConnectionStrings:Db_HR" "YOUR_SQL_SERVER_CONNECTION_STRING" --project HRManagementSystem/HRManagementSystem.csproj
+```
+
+```bash
+dotnet user-secrets set "EmailSettings:SenderEmail" "YOUR_EMAIL" --project HRManagementSystem/HRManagementSystem.csproj
+```
+
+```bash
+dotnet user-secrets set "EmailSettings:SenderPassword" "YOUR_EMAIL_APP_PASSWORD" --project HRManagementSystem/HRManagementSystem.csproj
+```
+
+---
+
+## Running the Application
+
+Run from the command line:
+
+```bash
+dotnet run --project HRManagementSystem/HRManagementSystem.csproj
+```
+
+Alternatively:
+
+1. Open `HRManagementSystem.sln` in Visual Studio 2022.
+2. Set `HRManagementSystem` as the startup project.
+3. Select the HTTPS launch profile.
+4. Run the application.
+
+The local URL is displayed in the Visual Studio output window or terminal.
+
+---
+
+## Reports and Export
+
+The project includes libraries for:
+
+- Excel report generation with EPPlus
+- Spreadsheet processing with ClosedXML
+- PDF document generation with QuestPDF
+
+Available reports depend on the current user role and assigned authorization policies.
+
+---
+
+## Development Notes
+
+The project is under active maintenance and refactoring.
+
+Current improvement areas include:
+
+- Standardizing project and namespace naming
+- Improving service registration and hosted service lifetimes
+- Moving machine-specific configuration outside source control
+- Improving validation and error handling
+- Adding automated build validation
+- Expanding automated tests
+- Improving API documentation
+
+---
+
+## Roadmap
+
+### Configuration and Security
+
+- Move local configuration to User Secrets
+- Remove machine-specific connection strings
+- Review authentication cookies and session settings
+- Add secret scanning and push protection
+
+### Architecture
+
+- Standardize service lifetimes
+- Separate business logic from controllers
+- Improve DTO and ViewModel usage
+- Review scheduled background services
+- Improve error logging
+
+### Testing
+
+- Add payroll calculation tests
+- Add leave approval tests
+- Add authorization policy tests
+- Add attendance workflow tests
+- Add integration tests
+
+### DevOps and Documentation
+
+- Add GitHub Actions build validation
+- Add screenshots
+- Add an entity relationship diagram
+- Add sample accounts and role descriptions
+- Add API documentation
+
+---
+
+## Team
+
+This project was originally developed by:
+
+- Nguyễn Hoà Khang — Leader
+- Đỗ Hoàng Ka — Member
+- Phan Nguyễn Đăng Khoa — Member
+- Trương Minh Đức — Member
+
+---
+
+## Contributing
+
+Contributions are welcome.
+
+Recommended workflow:
+
+1. Clone or fork the repository.
+2. Create a feature branch.
+3. Make focused changes.
+4. Build and test locally.
+5. Commit using a clear message.
+6. Open a pull request.
+
+Example:
+
+```bash
+git switch -c feature/improve-attendance-management
+git add .
+git commit -m "feat: improve attendance management"
+git push -u origin feature/improve-attendance-management
+```
+
+Avoid committing passwords, access tokens, generated build folders, or machine-specific configuration.
+
+---
+
+## Project Status
+
+```text
+Status: Active Development and Refactoring
+Framework: ASP.NET Core MVC
+Runtime: .NET 8
+Database: Microsoft SQL Server
+Authentication: Cookie Authentication
+Authorization: Role-based and Policy-based
+Deployment: Local Development
+```
+
+---
+
+## Disclaimer
+
+This project was created for educational and development purposes.
+
+Additional security review, automated testing, monitoring, and production configuration are required before using the application in a production environment.

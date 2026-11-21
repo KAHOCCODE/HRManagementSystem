@@ -11,6 +11,7 @@ namespace HR_KD.ApiControllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize(Roles = "DIRECTOR")]
     public class PayrollDirectorApiController : ControllerBase
     {
         private readonly HrDbContext _context;

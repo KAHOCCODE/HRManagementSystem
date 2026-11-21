@@ -571,6 +571,18 @@ public partial class HrDbContext : DbContext
                   .HasConstraintName("FK_PhepNamNhanVien_CauHinhPhepNam");
         });
         OnModelCreatingPartial(modelBuilder);
+
+        if (Database.IsSqlite())
+        {
+            foreach (var property in modelBuilder.Model.GetEntityTypes().SelectMany(entity => entity.GetProperties()))
+            {
+                property.SetColumnType(null);
+                if (property.GetDefaultValueSql() == "(getdate())")
+                {
+                    property.SetDefaultValueSql("CURRENT_TIMESTAMP");
+                }
+            }
+        }
     }
 
     partial void OnModelCreatingPartial(ModelBuilder modelBuilder);

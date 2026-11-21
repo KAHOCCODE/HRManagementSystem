@@ -1,4 +1,5 @@
 ﻿@model LoginViewModel
+@inject Microsoft.Extensions.Configuration.IConfiguration Configuration
 @{
     Layout = null;
 }
@@ -27,6 +28,10 @@
                         
                         <h2 class="form-title text-center">Đăng nhập hệ thống</h2>
                         
+                        @if (bool.TryParse(Configuration["Demo:Enabled"], out var isDemo) && isDemo)
+                        {
+                            <p class="alert alert-info">Bản dùng thử với dữ liệu mẫu. Chỉ nhập thông tin giả lập.</p>
+                        }
                         @if (TempData["Error"] != null)
                         {
                             <div class="alert alert-danger alert-dismissible fade show" role="alert">

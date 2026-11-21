@@ -1,13 +1,19 @@
 ﻿using HR_KD.Authorization;
 using HR_KD.Data;
 using HR_KD.Services;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
-using OfficeOpenXml;
+using Microsoft.Data.Sqlite;
 using QuestPDF.Infrastructure;
 
 var builder = WebApplication.CreateBuilder(args);
+var demoMode = builder.Configuration.GetValue<bool>("Demo:Enabled");
+var httpsAtProxy = builder.Configuration.GetValue<bool>("Hosting:HttpsAtProxy");
+var cookieSecurity = builder.Environment.IsDevelopment()
+    ? CookieSecurePolicy.SameAsRequest
+    : CookieSecurePolicy.Always;
 
 // Thêm hỗ trợ IHttpContextAccessor
 builder.Services.AddHttpContextAccessor();
@@ -18,6 +24,7 @@ builder.Services.AddSession(options =>
 {
     options.IdleTimeout = TimeSpan.FromMinutes(30); // 30 phút hết hạn
     options.Cookie.HttpOnly = true;
+    options.Cookie.SecurePolicy = cookieSecurity;
     options.Cookie.IsEssential = true;
 });
 
@@ -32,12 +39,14 @@ builder.Services.AddScoped<PayrollReportService>();
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(options =>
     {
+        options.Cookie.SecurePolicy = cookieSecurity;
         options.LoginPath = "/Account/Login";
         options.AccessDeniedPath = "/Account/AccessDenied";
     });
 
 builder.Services.AddAuthorization(options =>
 {
+    options.FallbackPolicy = new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build();
     options.AddPolicy("EMPLOYEE", policy => policy.RequireRole("EMPLOYEE"));
     options.AddPolicy("EMPLOYEE_MANAGER", policy => policy.RequireRole("EMPLOYEE_MANAGER"));
     options.AddPolicy("LINE_MANAGER", policy => policy.RequireRole("LINE_MANAGER"));
@@ -57,12 +66,26 @@ builder.Services.AddAuthorization(options =>
 });
 
 // Cấu hình Entity Framework
-builder.Services.AddDbContext<HrDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("Db_HR")));
+if (demoMode)
+{
+    var databasePath = builder.Configuration["Demo:DatabasePath"]
+        ?? Path.Combine(Path.GetTempPath(), "hr-demo", "hr.db");
+    databasePath = Path.GetFullPath(databasePath);
+    Directory.CreateDirectory(Path.GetDirectoryName(databasePath)!);
+    var demoConnection = new SqliteConnectionStringBuilder { DataSource = databasePath }.ToString();
+    builder.Services.AddDbContext<HrDbContext>(options => options.UseSqlite(demoConnection));
+}
+else
+{
+    builder.Services.AddDbContext<HrDbContext>(options =>
+        options.UseSqlServer(builder.Configuration.GetConnectionString("Db_HR")));
+}
 builder.Services.AddScoped<PhepNamService>(); // Đăng ký dịch vụ với vòng đời Scoped
 
-builder.Services.AddScoped<YearlyTaskService>(); // Đổi thành Scoped
-builder.Services.AddHostedService<YearlyTaskService>(); // Đảm bảo đăng ký như Hosted Service
+if (!demoMode)
+{
+    builder.Services.AddHostedService<YearlyTaskService>();
+}
 
 //// Đăng ký HttpClient và HolidayNotificationService
 //builder.Services.AddHttpClient();
@@ -75,6 +98,14 @@ QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
 
 var app = builder.Build();
 
+if (demoMode)
+{
+    await using var scope = app.Services.CreateAsyncScope();
+    await DemoData.InitializeAsync(
+        scope.ServiceProvider.GetRequiredService<HrDbContext>(),
+        app.Configuration["Demo:Password"]);
+}
+
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())
 {
@@ -82,15 +113,29 @@ if (!app.Environment.IsDevelopment())
     app.UseHsts();
 }
 
-app.UseHttpsRedirection();
-app.UseStaticFiles();
+if (!httpsAtProxy)
+{
+    app.UseHttpsRedirection();
+}
 
 app.UseRouting();
+app.UseAuthentication();
+app.Use(async (context, next) =>
+{
+    if (context.Request.Path.StartsWithSegments("/Uploads") && context.User.Identity?.IsAuthenticated != true)
+    {
+        await context.ChallengeAsync();
+        return;
+    }
+    await next();
+});
+app.UseStaticFiles();
 
 app.UseSession(); 
 
-app.UseAuthentication();
 app.UseAuthorization();
+
+app.MapGet("/health/live", () => Results.Ok()).AllowAnonymous();
 
 app.MapControllerRoute(
     name: "default",

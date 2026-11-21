@@ -1,6 +1,6 @@
 # Human Resources Management System
 
-[![.NET](https://img.shields.io/badge/.NET-8.0-512BD4)](https://dotnet.microsoft.com/)
+[![.NET](https://img.shields.io/badge/.NET-10.0-512BD4)](https://dotnet.microsoft.com/)
 [![ASP.NET Core MVC](https://img.shields.io/badge/ASP.NET%20Core-MVC-512BD4)](https://learn.microsoft.com/aspnet/core/mvc/)
 [![Entity Framework Core](https://img.shields.io/badge/Entity%20Framework-Core-512BD4)](https://learn.microsoft.com/ef/core/)
 [![SQL Server](https://img.shields.io/badge/Database-SQL%20Server-CC2927)](https://www.microsoft.com/sql-server)
@@ -56,7 +56,7 @@ The application uses ASP.NET Core MVC, Entity Framework Core, SQL Server, Cookie
 ### Backend
 
 - C#
-- .NET 8
+- .NET 10
 - ASP.NET Core MVC
 - ASP.NET Core Web API
 - Entity Framework Core
@@ -209,7 +209,7 @@ README.md
 Install the following tools:
 
 - [Visual Studio 2022](https://visualstudio.microsoft.com/)
-- [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0)
+- [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0)
 - [Microsoft SQL Server](https://www.microsoft.com/sql-server/sql-server-downloads)
 - [SQL Server Management Studio](https://learn.microsoft.com/sql/ssms/download-sql-server-management-studio-ssms)
 - [Git](https://git-scm.com/)
@@ -220,7 +220,7 @@ Verify the installed .NET SDK:
 dotnet --version
 ```
 
-The result should be version `8.x`.
+The result should be version `10.x`.
 
 ### Clone the Repository
 
@@ -245,7 +245,7 @@ dotnet build HRManagementSystem.sln
 
 ## Database Setup
 
-The application uses SQL Server and reads the connection string from:
+The standard application uses SQL Server and reads the connection string from:
 
 ```text
 ConnectionStrings:Db_HR
@@ -265,7 +265,7 @@ Apply the available migrations:
 dotnet ef database update --project HRManagementSystem/HRManagementSystem.csproj
 ```
 
-When using an existing SQL script or database backup, import or restore the database first and then apply any pending migrations.
+These migrations start with changes to an existing schema. Restore the original SQL Server database, including its triggers and migration history, before applying pending migrations. For a new database with synthetic records, use the demo mode below.
 
 ---
 
@@ -334,6 +334,26 @@ Alternatively:
 The local URL is displayed in the Visual Studio output window or terminal.
 
 ---
+
+## Demo hosting on Render
+
+Deploy the branch containing this version as a [Render Blueprint](https://dashboard.render.com/blueprints).
+The repository's `render.yaml` selects a free Docker web service and enables demo mode.
+When prompted for `Demo__Password`, set a dedicated random password of at least 16 ASCII characters.
+Use that password with any of these sample accounts:
+
+| Account | Role |
+| --- | --- |
+| `demo.employee` | Nhân viên |
+| `demo.hr` | Quản lý nhân sự |
+| `demo.manager` | Trưởng phòng |
+| `demo.payroll` | Kế toán lương |
+| `demo.director` | Giám đốc |
+
+Demo mode creates a SQLite database with synthetic employee, attendance, leave and payroll records.
+On the free service, changes to demo data and uploaded files are lost when Render restarts
+or redeploys the service. Use test data only. SQL Server's legacy triggers and the annual
+leave background job are outside the demo. The demo also runs without mail service credentials.
 
 ## Reports and Export
 
@@ -440,7 +460,7 @@ Avoid committing passwords, access tokens, generated build folders, or machine-s
 ```text
 Status: Active Development and Refactoring
 Framework: ASP.NET Core MVC
-Runtime: .NET 8
+Runtime: .NET 10
 Database: Microsoft SQL Server
 Authentication: Cookie Authentication
 Authorization: Role-based and Policy-based

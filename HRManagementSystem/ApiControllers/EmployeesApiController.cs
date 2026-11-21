@@ -6,7 +6,6 @@ using HR_KD.DTOs;
 using System.IO;
 using System.Collections.Generic;
 using HR_KD.Helpers;
-using Humanizer;
 using HR_KD.Services;
 using Microsoft.AspNetCore.Authorization;
 

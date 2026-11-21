@@ -1,0 +1,37 @@
+@model HR_KD.Models.OrganizationChartPage
+@{
+    ViewData["Title"] = "Sơ đồ tổ chức";
+}
+<link rel="stylesheet" href="~/css/organization.css" asp-append-version="true" />
+
+<section class="organization-page">
+    <header class="organization-heading organization-top">
+        <div>
+            <h1>Sơ đồ tổ chức</h1>
+            <p>@Model.Name <span aria-hidden="true">·</span> @Model.EmployeeCount nhân viên</p>
+        </div>
+        @if (User.IsInRole("DIRECTOR") || User.IsInRole("EMPLOYEE_MANAGER"))
+        {
+            <a asp-action="Index" class="btn btn-outline-primary">Quản lý nhân viên</a>
+        }
+    </header>
+    @if (Model.Roots.Count == 0)
+    {
+        <p class="organization-empty">Chưa có hồ sơ nhân viên.</p>
+    }
+    else
+    {
+        <label for="organization-search">Tìm người, phòng ban hoặc nơi làm việc</label>
+        <input id="organization-search" class="form-control organization-search" type="search">
+        <p id="organization-empty" class="organization-empty" hidden role="status">Không tìm thấy nhân viên phù hợp.</p>
+        <ul id="organization-tree" class="organization-forest">
+            @foreach (var root in Model.Roots)
+            {
+                <partial name="_OrganizationMember" model="root" />
+            }
+        </ul>
+    }
+</section>
+@section Scripts {
+    <script src="~/js/organization.js" asp-append-version="true"></script>
+}

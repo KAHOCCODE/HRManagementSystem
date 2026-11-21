@@ -21,9 +21,8 @@ internal static class PayrollAccess
         if (employeeId == null || (!user.IsInRole(LineManager) && (forUpdate || !user.IsInRole("EMPLOYEE_MANAGER"))))
             return db.BangLuongs.Where(_ => false);
 
-        return db.BangLuongs.Where(payroll => db.NhanViens.Any(manager =>
-            manager.MaNv == employeeId && manager.MaPhongBan == payroll.MaNvNavigation.MaPhongBan
-            && manager.MaChucVu < payroll.MaNvNavigation.MaChucVu));
+        var employeeIds = ReportingAccess.DirectReports(db, employeeId);
+        return db.BangLuongs.Where(payroll => employeeIds.Contains(payroll.MaNv));
     }
 
     internal static IQueryable<BangLuong> VisiblePayrolls(HrDbContext db, ClaimsPrincipal user)

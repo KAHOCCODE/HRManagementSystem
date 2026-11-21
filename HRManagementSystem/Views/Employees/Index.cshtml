@@ -1,4 +1,5 @@
 ﻿@{
+    ViewData["Title"] = "Quản lý nhân viên";
     Layout = "~/Views/Shared/_ThemeLayout.cshtml";
 }
 <link rel="stylesheet" href="~/css/employee.css">
@@ -9,9 +10,11 @@
                 <div class="card-header bg-primary text-white">
                     <div class="d-flex justify-content-between align-items-center">
                         <h3 class="mb-0">Quản Lý Nhân Viên</h3>
-                        <button class="btn btn-light btn-sm" id="toggleAvatar">
-                            <i class="fa fa-image me-1"></i> Ẩn/Hiện Ảnh
-                        </button>
+                        <div class="d-flex flex-wrap gap-2">
+                            <a asp-action="Create" class="btn btn-light btn-sm">Thêm nhân viên</a>
+                            <a asp-action="Organization" class="btn btn-light btn-sm">Sơ đồ tổ chức</a>
+                            <button class="btn btn-light btn-sm" id="toggleAvatar">Ẩn/hiện ảnh</button>
+                        </div>
                     </div>
                 </div>
                 <div class="card-body">
@@ -44,7 +47,12 @@
                                 <option value="">Tất cả Chức Vụ</option>
                             </select>
                         </div>
-                        <div class="col-md-3 d-flex justify-content-end">
+                        <div class="col-md-3 mb-2">
+                            <select id="filterWorksite" asp-items="ViewBag.Worksites" class="form-select" aria-label="Nơi làm việc">
+                                <option value="">Tất cả nơi làm việc</option>
+                            </select>
+                        </div>
+                        <div class="col-12 d-flex justify-content-end">
                             <div class="btn-group">
                                 <button class="btn btn-success" id="exportExcel">
                                     <i class="fa fa-file-excel me-1"></i> Xuất Excel
@@ -267,34 +275,6 @@
         let currentPage = 1;
         let allEmployeesData = [];
 
-        // Kiểm tra vai trò người dùng
-        let isDirector = false;
-        let userMaPhongBan = "";
-        fetch('/api/EmployeesApi/CheckRole')
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error(`Lỗi khi kiểm tra vai trò: ${response.status}`);
-                }
-                return response.json();
-            })
-            .then(data => {
-                isDirector = data.isDirector;
-                userMaPhongBan = data.maPhongBan || "";
-                if (!isDirector) {
-                    // Vô hiệu hóa bộ lọc phòng ban nếu không phải Director
-                    document.getElementById("filterPhongBan").disabled = true;
-                    document.getElementById("filterPhongBan").value = userMaPhongBan;
-                }
-            })
-            .catch(error => {
-                console.error('Error checking role:', error);
-                Swal.fire({
-                    icon: "error",
-                    title: "Lỗi",
-                    text: "Không thể kiểm tra vai trò người dùng."
-                });
-            });
-
         // Cập nhật sự kiện nút ẩn/hiện ảnh
         document.getElementById("toggleAvatar").addEventListener("click", function () {
             showAvatar = !showAvatar;
@@ -371,9 +351,6 @@
                         option.text = pb.tenPhongBan;
                         filterPhongBan.appendChild(option);
                     });
-                    if (!isDirector && userMaPhongBan) {
-                        filterPhongBan.value = userMaPhongBan;
-                    }
                 })
                 .catch(error => {
                     console.error('Error loading PhongBan:', error);
@@ -422,12 +399,14 @@
 
             let url = '/api/EmployeesApi';
             const params = new URLSearchParams();
-            if (phongBan && isDirector) {
+            if (phongBan) {
                 params.append('phongBan', phongBan);
             }
             if (chucVu) {
                 params.append('chucVu', chucVu);
             }
+            const worksite = document.getElementById("filterWorksite").value;
+            if (worksite) params.append("worksiteId", worksite);
             if (search) {
                 params.append('search', search);
             }
@@ -483,6 +462,14 @@
             renderEmployees(allEmployeesData, currentPage, itemsPerPage);
         }
 
+        document.getElementById("filterWorksite").addEventListener("change", applyFilters);
+
+        function escapeHtml(value) {
+            const span = document.createElement("span");
+            span.textContent = value ?? "";
+            return span.innerHTML.replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+        }
+
         function renderEmployees(data, page, itemsPerPage) {
             const startIndex = (page - 1) * itemsPerPage;
             const endIndex = Math.min(startIndex + itemsPerPage, data.length);
@@ -510,18 +497,19 @@
                     tableContent += `
                         <tr>
                             <td class="avatar-col text-center" style="display: ${showAvatar ? 'table-cell' : 'none'};">
-                                <img src="${employee.avatarUrl || '/images/employees/Avatar.jpg'}" class="rounded-circle border" width="40" height="40" style="object-fit: cover;">
+                                <img src="${escapeHtml(employee.avatarUrl?.startsWith("/") && !employee.avatarUrl.startsWith("//") ? employee.avatarUrl : "/images/employees/Avatar.jpg")}" alt="" loading="lazy" class="rounded-circle border" width="40" height="40" style="object-fit: cover;">
                             </td>
                             <td><span class="badge bg-light text-dark">${employee.maNv}</span></td>
-                            <td><div class="fw-bold">${employee.hoTen}</div></td>
-                            <td>${new Date(employee.ngaySinh).toLocaleDateString('vi-VN')}</td>
+                            <td><div class="fw-bold">${escapeHtml(employee.hoTen)}</div></td>
+                            <td>${employee.ngaySinh ? new Date(employee.ngaySinh).toLocaleDateString('vi-VN') : '—'}</td>
                             <td>${genderBadge}</td>
                             <td>${employee.soNguoiPhuThuoc || 0}</td>
-                            <td>${employee.sdt}</td>
-                            <td>${employee.email}</td>
-                            <td>${employee.phongBan || '<span class="text-muted fst-italic">Chưa cập nhật</span>'}</td>
-                            <td>${employee.chucVu || '<span class="text-muted fst-italic">Chưa cập nhật</span>'}</td>
+                            <td>${escapeHtml(employee.sdt) || '—'}</td>
+                            <td>${escapeHtml(employee.email) || '—'}</td>
+                            <td>${escapeHtml(employee.phongBan) || '—'}<br><small class="text-muted">${escapeHtml(employee.worksite) || 'Chưa gán nơi làm việc'}</small></td>
+                            <td>${escapeHtml(employee.chucVu) || '<span class="text-muted fst-italic">Chưa cập nhật</span>'}</td>
                             <td>
+                                <a class="btn btn-sm btn-outline-primary" href="/Employees/EditProfile/${employee.maNv}">Hồ sơ</a>
                                 <button class="btn btn-sm btn-outline-info btn-view-salary" data-manv="${employee.maNv}">
                                     <i class="fa fa-money-bill me-1"></i> Xem lương
                                 </button>

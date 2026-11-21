@@ -432,6 +432,24 @@ namespace HR_KD.Migrations
                     b.ToTable("DaoTao", (string)null);
                 });
 
+            modelBuilder.Entity("HR_KD.Data.EmployeeReportingLine", b =>
+                {
+                    b.Property<int>("EmployeeId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ManagerId")
+                        .HasColumnType("int");
+
+                    b.HasKey("EmployeeId");
+
+                    b.HasIndex("ManagerId");
+
+                    b.ToTable("EmployeeReportingLines", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_EmployeeReportingLines_DifferentEmployees", "EmployeeId <> ManagerId");
+                        });
+                });
+
             modelBuilder.Entity("HR_KD.Data.GiamTruGiaCanh", b =>
                 {
                     b.Property<int>("Id")
@@ -1860,6 +1878,25 @@ namespace HR_KD.Migrations
                         .IsRequired();
 
                     b.Navigation("PhongBan");
+                });
+
+            modelBuilder.Entity("HR_KD.Data.EmployeeReportingLine", b =>
+                {
+                    b.HasOne("HR_KD.Data.NhanVien", "Employee")
+                        .WithMany()
+                        .HasForeignKey("EmployeeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("HR_KD.Data.NhanVien", "Manager")
+                        .WithMany()
+                        .HasForeignKey("ManagerId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Employee");
+
+                    b.Navigation("Manager");
                 });
 
             modelBuilder.Entity("HR_KD.Data.GioThieu", b =>

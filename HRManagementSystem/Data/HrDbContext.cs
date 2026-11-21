@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
 
@@ -14,6 +14,7 @@ public partial class HrDbContext : DbContext
         : base(options)
     {
     }
+    public DbSet<EmployeeReportingLine> EmployeeReportingLines => Set<EmployeeReportingLine>();
     public DbSet<Worksite> Worksites => Set<Worksite>();
     public DbSet<WorksiteAssignment> WorksiteAssignments => Set<WorksiteAssignment>();
 
@@ -96,6 +97,15 @@ public partial class HrDbContext : DbContext
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        modelBuilder.Entity<EmployeeReportingLine>(entity =>
+        {
+            entity.HasKey(x => x.EmployeeId);
+            entity.ToTable("EmployeeReportingLines", table =>
+                table.HasCheckConstraint("CK_EmployeeReportingLines_DifferentEmployees", "EmployeeId <> ManagerId"));
+            entity.HasOne(x => x.Employee).WithMany().HasForeignKey(x => x.EmployeeId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(x => x.Manager).WithMany().HasForeignKey(x => x.ManagerId).OnDelete(DeleteBehavior.Restrict);
+        });
+
         modelBuilder.Entity<Worksite>()
             .HasIndex(x => x.Code).IsUnique();
 

@@ -218,6 +218,7 @@
     <div class="modal fade" id="roleModal" tabindex="-1" aria-labelledby="roleModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-dialog-scrollable modal-lg">
             <form id="roleForm" class="modal-content rounded-lg shadow-lg">
+                @Html.AntiForgeryToken()
                 <div class="modal-header bg-blue-600 text-white">
                     <h5 class="modal-title font-semibold" id="roleModalLabel">
                         Phân quyền cho <span id="modalHoTen"></span>
@@ -291,30 +292,15 @@
         function openModal(username, hoTen, existingRoles) {
             $('#modalUsername').val(username);
             $('#modalHoTen').text(hoTen);
-            $('.role-checkbox').prop('checked', false);
             currentUsername = username;
-
-            if (Array.isArray(existingRoles)) {
-                existingRoles.forEach(role => {
-                    $('#role_' + role).prop('checked', true);
-                });
-            }
-
-            // Disable roles cao hơn vai trò của người dùng hiện tại
-            var userRoles = @Html.Raw(JsonConvert.SerializeObject(userRoles));
-            var roleHierarchy = ['DIRECTOR', 'EMPLOYEE_MANAGER', 'LINE_MANAGER', 'EMPLOYEE',
-                'PAYROLL_AUDITOR', 'LIMITED_EMPLOYEE_MANAGER'
-            ];
-            var highestCurrentRoleIndex = Math.min(...userRoles.map(r => roleHierarchy.indexOf(r)));
+            const canManageAllRoles = @(User.IsInRole("DIRECTOR") ? "true" : "false");
+            const isHr = @(User.IsInRole("EMPLOYEE_MANAGER") ? "true" : "false");
+            const allowed = isHr ? ["EMPLOYEE", "LINE_MANAGER"] : ["EMPLOYEE"];
 
             $('.role-checkbox').each(function () {
-                var role = $(this).val();
-                var roleIndex = roleHierarchy.indexOf(role);
-                if (roleIndex < highestCurrentRoleIndex) {
-                    $(this).prop('disabled', true).parent().css('opacity', '0.5');
-                }
+                $(this).prop('checked', existingRoles.includes(this.value));
+                $(this).prop('disabled', !canManageAllRoles && !allowed.includes(this.value));
             });
-
             $('#roleModal').modal('show');
         }
 
@@ -350,6 +336,7 @@
 
             $.ajax({
                 url: '/Employees/UpdateRoles',
+                headers: { RequestVerificationToken: $('#roleForm [name="__RequestVerificationToken"]').val() },
                 method: 'POST',
                 contentType: 'application/json',
                 data: JSON.stringify({

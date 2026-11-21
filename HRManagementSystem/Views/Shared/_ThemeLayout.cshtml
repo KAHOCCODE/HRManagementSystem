@@ -108,18 +108,23 @@
                             <a href="~/Home/Index"><i class="fa fa-dashboard"></i> <span>Dashboard</span></a>
                         </li>
 
-                        @if (User.IsInRole("LINE_MANAGER") || User.IsInRole("EMPLOYEE_MANAGER"))
+                        @if (User.Identity?.IsAuthenticated == true)
                         {
+                            var managesStaff = User.IsInRole("DIRECTOR") || User.IsInRole("EMPLOYEE_MANAGER");
                             <li class="submenu">
                                 <a href="#"><i class="fa fa-users"></i> <span>Nhân viên</span> <span class="menu-arrow"></span></a>
                                 <ul style="display: none;">
-                                    @if (User.IsInRole("EMPLOYEE_MANAGER"))
+                                    @if (managesStaff)
                                     {
-                                        <li><a href="~/Employees/Index"><i class="fa fa-list"></i> Danh sách nhân viên</a></li>
-                                        <li><a href="~/Employees/Create"><i class="fa fa-user-plus"></i> Thêm nhân viên</a></li>
-                                        <li><a href="~/Employees/EmployeeContracts"><i class="fa fa-file-text"></i> Quản lý hợp đồng</a></li>
+                                        <li><a asp-controller="Employees" asp-action="Index">Quản lý nhân viên</a></li>
+                                        <li><a asp-controller="Employees" asp-action="Create">Thêm nhân viên</a></li>
+                                        <li><a asp-controller="Employees" asp-action="EmployeeContracts">Quản lý hợp đồng</a></li>
                                     }
-                                    <li><a href="~/Employees/Roles"><i class="fa fa-key"></i> Cấp quyền nhân viên</a></li>
+                                    <li><a asp-controller="Employees" asp-action="Organization">Sơ đồ tổ chức</a></li>
+                                    @if (managesStaff || User.IsInRole("LINE_MANAGER"))
+                                    {
+                                        <li><a asp-controller="Employees" asp-action="Roles">Cấp quyền nhân viên</a></li>
+                                    }
                                 </ul>
                             </li>
                         }

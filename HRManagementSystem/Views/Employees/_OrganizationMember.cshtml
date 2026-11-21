@@ -1,0 +1,33 @@
+@model HR_KD.Models.OrganizationMember
+@{
+    var canManage = User.IsInRole("DIRECTOR") || User.IsInRole("EMPLOYEE_MANAGER");
+}
+<li class="organization-node" data-organization-label="@($"{Model.Name} {Model.Position} {Model.Department} {Model.Worksite}")" data-employee="@Model.Id" data-manager="@Model.ManagerId">
+    <div class="organization-person">
+        <img class="organization-photo" src="@(Model.AvatarUrl ?? "/images/employees/Avatar.jpg")" alt="" loading="lazy" width="52" height="52">
+        <div class="organization-person-text">
+            @if (canManage)
+            {
+                <a asp-action="EditProfile" asp-route-id="@Model.Id" class="organization-name">@Model.Name</a>
+            }
+            else
+            {
+                <strong class="organization-name">@Model.Name</strong>
+            }
+            <span>@Model.Position</span>
+            <small>@Model.Department@if (Model.Worksite != null) { <text> · @Model.Worksite</text> }</small>
+        </div>
+    </div>
+    @if (Model.Reports.Count > 0)
+    {
+        <details class="organization-branch" open>
+            <summary>@Model.Reports.Count báo cáo trực tiếp</summary>
+            <ul class="organization-children">
+                @foreach (var report in Model.Reports)
+                {
+                    <partial name="_OrganizationMember" model="report" />
+                }
+            </ul>
+        </details>
+    }
+</li>

@@ -7,6 +7,7 @@ namespace HR_KD.DTOs
     public class CreateEmployeeDTO
     {
         [Required(ErrorMessage = "Họ tên không được để trống")]
+        [StringLength(100)]
         public string HoTen { get; set; } = string.Empty;
 
         [Required(ErrorMessage = "Ngày sinh không được để trống")]
@@ -16,6 +17,7 @@ namespace HR_KD.DTOs
         [Required(ErrorMessage = "Giới tính không được để trống")]
         public bool GioiTinh { get; set; }
 
+        [StringLength(255)]
         public string? DiaChi { get; set; }
 
         [Required(ErrorMessage = "Số điện thoại không được để trống")]
@@ -23,6 +25,7 @@ namespace HR_KD.DTOs
         public string Sdt { get; set; } = string.Empty;
 
         [Required(ErrorMessage = "Email không được để trống")]
+        [StringLength(100)]
         [EmailAddress(ErrorMessage = "Địa chỉ email không hợp lệ")]
         public string Email { get; set; } = string.Empty;
 
@@ -38,9 +41,13 @@ namespace HR_KD.DTOs
         [DataType(DataType.Date)]
         public DateTime NgayVaoLam { get; set; }
 
-        [AllowedExtensions(new string[] { ".jpg", ".png", ".jpeg" })]
+        public int? WorksiteId { get; set; }
+        public int? ManagerId { get; set; }
+
+        [AllowedExtensions(new string[] { ".jpg", ".png", ".jpeg", ".webp" })]
         [MaxFileSize(5 * 1024 * 1024)]
         public IFormFile? AvatarUrl { get; set; }
+        [Range(0, 100)]
         public int SoNguoiPhuThuoc { get; set; } = 0; // Thêm trường mới, mặc định là 0
     }
 

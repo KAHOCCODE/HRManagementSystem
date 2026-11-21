@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Authorization;
+﻿using HR_KD.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using HR_KD.Data;
 using HR_KD.Services;
 using Microsoft.AspNetCore.Mvc;
@@ -39,10 +40,8 @@ namespace HR_KD.ApiControllers
             if (User.IsInRole("DIRECTOR"))
                 return _context.NgayNghis;
 
-            var reviewerId = GetMaNvFromClaims();
-            return _context.NgayNghis.Where(request => _context.NhanViens.Any(reviewer =>
-                reviewer.MaNv == reviewerId && reviewer.MaPhongBan == request.MaNvNavigation.MaPhongBan
-                && reviewer.MaChucVu < request.MaNvNavigation.MaChucVu));
+            var directReports = ReportingAccess.DirectReports(_context, GetMaNvFromClaims());
+            return _context.NgayNghis.Where(request => directReports.Contains(request.MaNv));
         }
 
         [HttpGet]

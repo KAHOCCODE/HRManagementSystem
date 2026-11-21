@@ -13,7 +13,7 @@ namespace HR_KD.ApiControllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize]
+    [Authorize(Roles = "DIRECTOR,EMPLOYEE_MANAGER")]
     public class EmployeesApiController : ControllerBase
     {
         private readonly HrDbContext _context;
@@ -61,51 +61,26 @@ namespace HR_KD.ApiControllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Lỗi khi kiểm tra vai trò người dùng.");
-                return StatusCode(500, new { message = "Lỗi server. Xem log để biết chi tiết.", error = ex.Message });
+                return StatusCode(500, new { message = "Không xử lý được yêu cầu." });
             }
         }
         #endregion
 
         #region Lấy danh sách nhân viên
         [HttpGet]
-        public IActionResult GetEmployees([FromQuery] int? phongBan = null, [FromQuery] int? chucVu = null, [FromQuery] string search = null)
+        public IActionResult GetEmployees([FromQuery] int? phongBan = null, [FromQuery] int? chucVu = null, [FromQuery] string? search = null, [FromQuery] int? worksiteId = null)
         {
             try
             {
-                var username = User.Identity?.Name;
-                if (string.IsNullOrEmpty(username))
-                {
-                    return Unauthorized(new { message = "Người dùng chưa đăng nhập." });
-                }
-
-                var currentEmployee = _context.TaiKhoans
-                    .Include(t => t.MaNvNavigation)
-                    .FirstOrDefault(t => t.Username == username);
-
-                if (currentEmployee == null || currentEmployee.MaNvNavigation == null)
-                {
-                    return BadRequest(new { message = "Không tìm thấy thông tin nhân viên của người dùng." });
-                }
-
-                bool isDirector = _context.TaiKhoanQuyenHans
-                    .Any(tq => tq.Username == username && tq.MaQuyenHan == "DIRECTOR");
-
-                var query = _context.NhanViens
-                    .Include(e => e.MaPhongBanNavigation)
-                    .Include(e => e.MaChucVuNavigation)
-                    .AsQueryable();
-
-                // Nếu không phải Director, chỉ hiển thị nhân viên trong cùng phòng ban
-                if (!isDirector)
-                {
-                    var maPhongBan = currentEmployee.MaNvNavigation.MaPhongBan;
-                    query = query.Where(e => e.MaPhongBan == maPhongBan);
-                }
-                else if (phongBan.HasValue)
-                {
-                    // Director có thể lọc theo phòng ban được chọn
+                var today = DateOnly.FromDateTime(DateTime.UtcNow.AddHours(7));
+                var query = _context.NhanViens.AsNoTracking();
+                if (phongBan.HasValue)
                     query = query.Where(e => e.MaPhongBan == phongBan.Value);
-                }
+                if (worksiteId.HasValue)
+                    query = query.Where(e => _context.WorksiteAssignments
+                        .Where(site => site.EmployeeId == e.MaNv && site.EffectiveFrom <= today)
+                        .OrderByDescending(site => site.EffectiveFrom).Select(site => (int?)site.WorksiteId)
+                        .FirstOrDefault() == worksiteId);
 
                 // Áp dụng bộ lọc chức vụ nếu có
                 if (chucVu.HasValue)
@@ -116,14 +91,14 @@ namespace HR_KD.ApiControllers
                 // Áp dụng tìm kiếm nếu có
                 if (!string.IsNullOrEmpty(search))
                 {
-                    search = search.ToLower();
+                    search = search.Trim().ToLower();
                     query = query.Where(e =>
                         e.HoTen.ToLower().Contains(search) ||
-                        e.Email.ToLower().Contains(search) ||
-                        e.Sdt.Contains(search));
+                        (e.Email != null && e.Email.ToLower().Contains(search)) ||
+                        (e.Sdt != null && e.Sdt.Contains(search)));
                 }
 
-                var employees = query.Select(e => new
+                var employees = query.OrderBy(e => e.MaNv).Select(e => new
                 {
                     e.MaNv,
                     e.HoTen,
@@ -139,7 +114,9 @@ namespace HR_KD.ApiControllers
                     e.AvatarUrl,
                     e.SoNguoiPhuThuoc,
                     e.MaPhongBan,
-                    e.MaChucVu
+                    e.MaChucVu,
+                    Worksite = _context.WorksiteAssignments.Where(site => site.EmployeeId == e.MaNv && site.EffectiveFrom <= today)
+                        .OrderByDescending(site => site.EffectiveFrom).Select(site => site.Worksite.Name).FirstOrDefault()
                 })
                 .ToList();
 
@@ -148,7 +125,7 @@ namespace HR_KD.ApiControllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Lỗi khi lấy danh sách nhân viên.");
-                return StatusCode(500, new { message = "Lỗi server. Xem log để biết chi tiết.", error = ex.Message });
+                return StatusCode(500, new { message = "Không xử lý được yêu cầu." });
             }
         }
         #endregion
@@ -221,14 +198,14 @@ namespace HR_KD.ApiControllers
                     return BadRequest(new { message = "Nhân viên không tồn tại." });
                 }
 
-                bool hasSalary = _context.BangLuongs.Any(l => l.MaNv == maNv);
+                bool hasSalary = _context.ThongTinLuongNVs.Any(l => l.MaNv == maNv);
 
                 return Ok(new { hasSalary });
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Lỗi khi kiểm tra thông tin lương của nhân viên.");
-                return StatusCode(500, new { message = "Lỗi server. Xem log để biết chi tiết.", error = ex.Message });
+                return StatusCode(500, new { message = "Không xử lý được yêu cầu." });
             }
         }
         #endregion
@@ -353,7 +330,7 @@ namespace HR_KD.ApiControllers
             {
                 transaction.Rollback();
                 _logger.LogError(ex, "Lỗi khi lưu hợp đồng.");
-                return StatusCode(500, new { message = "Lỗi server. Xem log để biết chi tiết.", error = ex.Message });
+                return StatusCode(500, new { message = "Không xử lý được yêu cầu." });
             }
         }
         #endregion
@@ -431,13 +408,12 @@ namespace HR_KD.ApiControllers
             {
                 transaction.Rollback();
                 _logger.LogError(ex, "Lỗi khi gia hạn hợp đồng.");
-                return StatusCode(500, new { message = "Lỗi server. Xem log để biết chi tiết.", error = ex.Message });
+                return StatusCode(500, new { message = "Không xử lý được yêu cầu." });
             }
         }
         #endregion
 
         #region Thêm nhân viên 
-        [Authorize(Roles = "EMPLOYEE_MANAGER,DIRECTOR")]
         [HttpPost("CreateEmployee")]
         public IActionResult CreateEmployee([FromForm] CreateEmployeeDTO employeeDto)
         {
@@ -449,20 +425,27 @@ namespace HR_KD.ApiControllers
                 return BadRequest(new { message = string.Join(" | ", errors) });
             }
 
-            if (employeeDto.AvatarUrl is { } avatar)
-            {
-                var extension = Path.GetExtension(avatar.FileName).ToLowerInvariant();
-                if (extension is not (".jpg" or ".jpeg" or ".png" or ".webp") || avatar.Length > 5 * 1024 * 1024)
-                    return BadRequest(new { message = "Ảnh đại diện phải là JPG, PNG hoặc WebP và tối đa 5 MB." });
-            }
+            if (employeeDto.AvatarUrl is { } avatar && !EmployeePhotos.IsValid(avatar))
+                return BadRequest(new { message = "Ảnh đại diện phải là JPG, PNG hoặc WebP và tối đa 5 MB." });
 
-            using var transaction = _context.Database.BeginTransaction();
+            if (employeeDto.NgaySinh == default || employeeDto.NgayVaoLam == default
+                || employeeDto.NgaySinh.Date >= employeeDto.NgayVaoLam.Date)
+                return BadRequest(new { message = "Ngày sinh và ngày vào làm không hợp lệ." });
+
+            using var transaction = _context.Database.BeginTransaction(System.Data.IsolationLevel.Serializable);
+            string? uploaded = null;
             try
             {
-                if (_context.TaiKhoans.Any(t => t.Username == employeeDto.Sdt))
-                {
+                var email = employeeDto.Email.Trim();
+                var phone = employeeDto.Sdt.Trim();
+                if (_context.NhanViens.Any(x => x.Email != null && x.Email.ToLower() == email.ToLower()))
+                    return Conflict(new { message = "Email đã được sử dụng." });
+                if (_context.NhanViens.Any(x => x.Sdt == phone))
                     return Conflict(new { message = "Số điện thoại đã được sử dụng." });
-                }
+                if (employeeDto.WorksiteId is int site && !_context.Worksites.Any(x => x.Id == site))
+                    return BadRequest(new { message = "Nơi làm việc không tồn tại." });
+                if (employeeDto.ManagerId is int manager && !_context.NhanViens.Any(x => x.MaNv == manager))
+                    return BadRequest(new { message = "Quản lý trực tiếp không tồn tại." });
 
                 if (!_context.PhongBans.Any(p => p.MaPhongBan == employeeDto.MaPhongBan))
                 {
@@ -476,12 +459,12 @@ namespace HR_KD.ApiControllers
 
                 var employee = new NhanVien
                 {
-                    HoTen = employeeDto.HoTen,
+                    HoTen = employeeDto.HoTen.Trim(),
                     NgaySinh = DateOnly.FromDateTime(employeeDto.NgaySinh),
                     GioiTinh = employeeDto.GioiTinh,
                     DiaChi = employeeDto.DiaChi,
-                    Sdt = employeeDto.Sdt,
-                    Email = employeeDto.Email,
+                    Sdt = phone,
+                    Email = email,
                     TrinhDoHocVan = employeeDto.TrinhDoHocVan,
                     MaPhongBan = employeeDto.MaPhongBan,
                     MaChucVu = employeeDto.MaChucVu,
@@ -493,6 +476,13 @@ namespace HR_KD.ApiControllers
                 _context.NhanViens.Add(employee);
                 _context.SaveChanges();
                 int maNvMoi = employee.MaNv;
+                if (employeeDto.WorksiteId is int worksiteId)
+                    _context.WorksiteAssignments.Add(new WorksiteAssignment
+                    {
+                        EmployeeId = maNvMoi, WorksiteId = worksiteId, EffectiveFrom = employee.NgayVaoLam!.Value
+                    });
+                if (employeeDto.ManagerId is int managerId)
+                    _context.EmployeeReportingLines.Add(new EmployeeReportingLine { EmployeeId = maNvMoi, ManagerId = managerId });
 
                 var defaultRoles = new List<string> { "EMPLOYEE" };
                 var validRoles = _context.QuyenHans
@@ -548,18 +538,16 @@ namespace HR_KD.ApiControllers
                     for (int i = 0; i < days; i++)
                     {
                         var holidayDate = holiday.NgayLe1.AddDays(i);
-                        if (holidayDate >= startDate.Value && !_context.ChamCongs.Any(cc => cc.MaNv == maNvMoi && cc.NgayLamViec == holidayDate))
+                        if (holidayDate >= startDate.Value && holidayDate <= DateOnly.FromDateTime(DateTime.UtcNow.AddHours(7)) && !_context.ChamCongs.Any(cc => cc.MaNv == maNvMoi && cc.NgayLamViec == holidayDate))
                         {
                             var attendance = new ChamCong
                             {
                                 MaNv = maNvMoi,
                                 NgayLamViec = holidayDate,
-                                GioVao = new TimeOnly(8, 0),
-                                GioRa = new TimeOnly(18, 0),
                                 TongGio = 8,
-                                TrangThai = "CC3",
-                                GhiChu = holiday.MoTa ?? "",
-                                MaNvDuyet = 1
+                                TrangThai = HR_KD.Common.AttendanceStatus.Paidleave,
+                                GhiChu = holiday.TenNgayLe,
+                                MaNvDuyet = int.Parse(User.FindFirst("MaNV")!.Value)
                             };
 
                             _context.ChamCongs.Add(attendance);
@@ -571,36 +559,17 @@ namespace HR_KD.ApiControllers
 
                 if (employeeDto.AvatarUrl != null)
                 {
-                    try
-                    {
-                        var basePath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "avatars");
-                        if (!Directory.Exists(basePath))
-                        {
-                            Directory.CreateDirectory(basePath);
-                        }
-                        var fileName = $"{maNvMoi}_{Guid.NewGuid():N}{Path.GetExtension(employeeDto.AvatarUrl.FileName).ToLowerInvariant()}";
-                        var filePath = Path.Combine(basePath, fileName);
-
-                        using (var stream = new FileStream(filePath, FileMode.Create))
-                        {
-                            employeeDto.AvatarUrl.CopyTo(stream);
-                        }
-
-                        employee.AvatarUrl = $"/avatars/{fileName}";
-                        _context.NhanViens.Update(employee);
-                        _context.SaveChanges();
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex, "Lỗi khi xử lý ảnh đại diện.");
-                    }
+                    employee.AvatarUrl = uploaded = EmployeePhotos.Save(employeeDto.AvatarUrl, maNvMoi);
+                    _context.SaveChanges();
                 }
 
                 transaction.Commit();
 
+                var activationSent = false;
                 try
                 {
-                    _activation.Send(employeeDto.Email, taiKhoan.Username, temporaryPassword, taiKhoan.PasswordHash);
+                    _activation.Send(email, taiKhoan.Username, temporaryPassword, taiKhoan.PasswordHash);
+                    activationSent = true;
                 }
                 catch (Exception ex)
                 {
@@ -610,6 +579,7 @@ namespace HR_KD.ApiControllers
                 var responseDto = new
                 {
                     MaNv = employee.MaNv,
+                    ActivationSent = activationSent,
                     HoTen = employee.HoTen,
                     NgaySinh = employee.NgaySinh,
                     GioiTinh = employee.GioiTinh.HasValue ? (employee.GioiTinh.Value ? "Nam" : "Nữ") : "Không xác định",
@@ -628,9 +598,9 @@ namespace HR_KD.ApiControllers
             }
             catch (Exception ex)
             {
-                transaction.Rollback();
+                EmployeePhotos.DeleteNewUpload(uploaded);
                 _logger.LogError(ex, "Lỗi khi tạo nhân viên.");
-                return StatusCode(500, new { message = "Lỗi server. Xem log để biết chi tiết.", error = ex.Message });
+                return StatusCode(500, new { message = "Không xử lý được yêu cầu." });
             }
         }
         #endregion

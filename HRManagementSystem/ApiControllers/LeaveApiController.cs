@@ -1,4 +1,5 @@
-﻿using HR_KD.Data;
+﻿using HR_KD.Authorization;
+using HR_KD.Data;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System;
@@ -34,11 +35,10 @@ namespace HR_KD.ApiControllers
 
             var canReview = User.IsInRole("EMPLOYEE_MANAGER");
             var canSeeAll = User.IsInRole("DIRECTOR");
+            var directReports = ReportingAccess.DirectReports(_context, employeeId);
             var attachments = await _context.NgayNghis.AsNoTracking()
                 .Where(x => x.FileDinhKem != null && x.FileDinhKem.Contains(fileName)
-                    && (x.MaNv == employeeId || canSeeAll || (canReview && _context.NhanViens.Any(reviewer =>
-                        reviewer.MaNv == employeeId && reviewer.MaPhongBan == x.MaNvNavigation.MaPhongBan
-                        && reviewer.MaChucVu < x.MaNvNavigation.MaChucVu))))
+                    && (x.MaNv == employeeId || canSeeAll || (canReview && directReports.Contains(x.MaNv))))
                 .Select(x => x.FileDinhKem!).Distinct().ToListAsync();
             if (!attachments.Any(x => x.Split('-', StringSplitOptions.RemoveEmptyEntries).Contains(fileName, StringComparer.Ordinal)))
                 return NotFound();

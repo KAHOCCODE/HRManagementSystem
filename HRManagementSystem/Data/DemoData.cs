@@ -20,7 +20,7 @@ internal static class DemoData
         }
 
         if (!await db.Database.EnsureCreatedAsync())
-            await AddWorksiteTablesToExistingDemoAsync(db);
+            await EnsureDemoExtensionsAsync(db);
         await using var seedTransaction = await db.Database.BeginTransactionAsync();
         if (await db.TaiKhoans.AnyAsync())
         {
@@ -38,7 +38,34 @@ internal static class DemoData
             Code = "HCM-CANGIO", Name = "Chi nhánh Cần Giờ",
             Ward = "Xã Cần Giờ", Address = "Đường Rừng Sác", Region2026 = 2, Region2027 = 1
         };
-        var department = new PhongBan { TenPhongBan = "Vận hành", MoTa = "Vận hành nội bộ" };
+        var thuDuc = new Worksite
+        {
+            Code = "HCM-THUDUC", Name = "Trung tâm khai thác Thủ Đức",
+            Ward = "Phường Thủ Đức", Address = "Đường Võ Văn Ngân", Region2026 = 1, Region2027 = 1
+        };
+        var sites = new Dictionary<string, Worksite> { ["SG"] = headquarters, ["CG"] = canGio, ["TD"] = thuDuc };
+        var departments = DemoRoster.Team.Select(x => x.Department).Distinct()
+            .ToDictionary(x => x, x => new PhongBan { TenPhongBan = x });
+        var positions = DemoRoster.Team.Select(x => x.Position).Distinct()
+            .ToDictionary(x => x, x => new ChucVu { TenChucVu = x });
+        var leaveDates = new (int Index, DateOnly Date, string Status, string Reason)[]
+        {
+            (4, new(2026, 8, 14), LeaveStatus.Approved, "Việc gia đình"),
+            (4, new(2026, 11, 13), LeaveStatus.Approved, "Việc gia đình"),
+            (4, DataThrough, LeaveStatus.Pending, "Việc cá nhân"),
+            (5, new(2026, 9, 18), LeaveStatus.Approved, "Nghỉ phép cá nhân"),
+            (5, new(2026, 11, 18), LeaveStatus.Pending, "Việc gia đình"),
+            (8, new(2026, 10, 9), LeaveStatus.Approved, "Việc cá nhân"),
+            (11, new(2026, 11, 5), LeaveStatus.Approved, "Việc gia đình"),
+            (12, new(2026, 11, 9), LeaveStatus.Rejected, "Việc gia đình"),
+            (13, new(2026, 9, 25), LeaveStatus.Approved, "Nghỉ phép cá nhân"),
+            (15, new(2026, 10, 19), LeaveStatus.Approved, "Việc gia đình"),
+            (17, new(2026, 11, 10), LeaveStatus.Approved, "Việc cá nhân"),
+            (19, new(2026, 10, 26), LeaveStatus.Approved, "Việc gia đình"),
+            (21, new(2026, 11, 16), LeaveStatus.Pending, "Việc gia đình"),
+            (22, new(2026, 9, 15), LeaveStatus.Approved, "Việc cá nhân"),
+            (23, new(2026, 11, 6), LeaveStatus.Approved, "Nghỉ phép cá nhân")
+        };
         var leaveType = new LoaiNgayNghi
         {
             TenLoai = "Nghỉ phép năm",
@@ -57,83 +84,81 @@ internal static class DemoData
         });
 
         var signedContracts = new LoaiHopDong { MaLoaiHopDong = 2, TenLoaiHopDong = "Không xác định thời hạn", TiLeLuong = 1 };
-        db.LoaiHopDongs.AddRange(
-            new LoaiHopDong { MaLoaiHopDong = 1, TenLoaiHopDong = "Xác định thời hạn", ThoiHanMacDinh = 36, TiLeLuong = 1, GiaHanToiDa = 1 },
-            signedContracts);
+        var fixedTermContract = new LoaiHopDong { MaLoaiHopDong = 1, TenLoaiHopDong = "Xác định thời hạn",
+            ThoiHanMacDinh = 12, TiLeLuong = 1, GiaHanToiDa = 1 };
+        db.LoaiHopDongs.AddRange(fixedTermContract, signedContracts);
         var schedule = new LichLamViec { Nam = DataThrough.Year, TenLich = "T2 - T6", KichHoat = true };
         db.LichLamViecs.AddRange(schedule,
             new LichLamViec { TenLich = "T2 - Nửa T7", Nam = DataThrough.Year },
             new LichLamViec { TenLich = "T2 - T7", Nam = DataThrough.Year });
-        var staff = new List<(string Username, NhanVien Employee, ThongTinLuongNV Salary, List<ChamCong> Attendance)>();
-        var sampleUsers = new[]
+        var staff = new List<(NhanVien Employee, ThongTinLuongNV Salary, List<ChamCong> Attendance)>();
+        var roles = DemoRoster.Team.Where(x => x.Role != null).ToDictionary(x => x.Role!, x =>
+            new QuyenHan { MaQuyenHan = x.Role!, TenQuyenHan = x.Position, MoTaQuyenHan = x.Position });
+        db.QuyenHans.AddRange(roles.Values);
+        for (var index = 0; index < DemoRoster.Team.Length; index++)
         {
-            (Username: "demo.director", Name: "Nguyễn Minh An", Role: "DIRECTOR", Title: "Giám đốc", MonthlyPay: 36000000m),
-            (Username: "demo.hr", Name: "Trần Khánh Linh", Role: "EMPLOYEE_MANAGER", Title: "Quản lý nhân sự", MonthlyPay: 24000000m),
-            (Username: "demo.manager", Name: "Lê Hoàng Nam", Role: "LINE_MANAGER", Title: "Trưởng phòng", MonthlyPay: 21000000m),
-            (Username: "demo.payroll", Name: "Phạm Gia Hân", Role: "PAYROLL_AUDITOR", Title: "Kế toán lương", MonthlyPay: 16000000m),
-            (Username: "demo.employee", Name: "Võ Thanh Bình", Role: "EMPLOYEE", Title: "Nhân viên", MonthlyPay: 12000000m)
-        };
-        foreach (var sample in sampleUsers)
-        {
+            var person = DemoRoster.Team[index];
+            var site = sites[person.Site];
+            var payrollStart = person.Hired > StartOfYear ? person.Hired : StartOfYear;
             var employee = new NhanVien
             {
-                HoTen = sample.Name,
-                Email = sample.Username + "@example.invalid",
-                NgayVaoLam = StartOfYear.AddYears(-1),
-                MaPhongBanNavigation = department,
-                MaChucVuNavigation = new ChucVu { TenChucVu = sample.Title }
+                HoTen = person.Name,
+                Email = (person.Login ?? $"nv{index + 1:00}") + "@example.invalid",
+                GioiTinh = person.Male,
+                NgaySinh = new DateOnly(person.BirthYear, index % 12 + 1, index % 22 + 1),
+                DiaChi = $"{site.Ward}, TP.HCM",
+                NgayVaoLam = person.Hired,
+                MaPhongBanNavigation = departments[person.Department],
+                MaChucVuNavigation = positions[person.Position],
+                SoNguoiPhuThuoc = person.Dependents,
+                AvatarUrl = $"/images/employees/an-phu-nam/{index + 1:00}.webp"
             };
+            db.NhanViens.Add(employee);
             db.WorksiteAssignments.Add(new WorksiteAssignment
             {
-                Employee = employee,
-                Worksite = sample.Role == "EMPLOYEE" ? canGio : headquarters,
-                EffectiveFrom = StartOfYear
+                Employee = employee, Worksite = site, EffectiveFrom = payrollStart
             });
-            var salt = Convert.ToHexString(RandomNumberGenerator.GetBytes(12));
-            var account = new TaiKhoan
+            if (person.Login != null)
             {
-                Username = sample.Username,
-                PasswordSalt = salt,
-                PasswordHash = BCrypt.Net.BCrypt.HashPassword(password + salt),
-                MaNvNavigation = employee
-            };
-            account.TaiKhoanQuyenHans.Add(new TaiKhoanQuyenHan
-            {
-                QuyenHan = new QuyenHan
+                var salt = Convert.ToHexString(RandomNumberGenerator.GetBytes(12));
+                var account = new TaiKhoan
                 {
-                    MaQuyenHan = sample.Role,
-                    TenQuyenHan = sample.Title,
-                    MoTaQuyenHan = "Quyền theo chức danh"
-                }
-            });
-            db.TaiKhoans.Add(account);
+                    Username = person.Login, PasswordSalt = salt,
+                    PasswordHash = BCrypt.Net.BCrypt.HashPassword(password + salt),
+                    MaNvNavigation = employee
+                };
+                account.TaiKhoanQuyenHans.Add(new TaiKhoanQuyenHan { QuyenHan = roles[person.Role!] });
+                db.TaiKhoans.Add(account);
+            }
 
+            bool fixedTerm = person.Hired.Year == DataThrough.Year;
             db.HopDongLaoDongs.Add(new HopDongLaoDong
             {
-                NhanVien = employee, LoaiHopDong = signedContracts, NgayBatDau = StartOfYear,
-                GhiChu = "Hợp đồng lao động"
+                NhanVien = employee, LoaiHopDong = fixedTerm ? fixedTermContract : signedContracts,
+                NgayBatDau = person.Hired, NgayKetThuc = fixedTerm ? person.Hired.AddYears(1).AddDays(-1) : null,
+                ThoiHan = fixedTerm ? 12 : null, IsActive = true
             });
 
             var salary = new ThongTinLuongNV
             {
-                NhanVien = employee, LuongCoBan = sample.MonthlyPay, NgayApDung = StartOfYear.ToDateTime(TimeOnly.MinValue),
-                BHXH = sample.MonthlyPay * .08m, BHYT = sample.MonthlyPay * .015m, BHTN = sample.MonthlyPay * .01m,
-                IsActive = true, GhiChu = "Lương theo hợp đồng"
+                NhanVien = employee, LuongCoBan = person.Pay, NgayApDung = payrollStart.ToDateTime(TimeOnly.MinValue),
+                BHXH = person.Pay * .08m, BHYT = person.Pay * .015m, BHTN = person.Pay * .01m, IsActive = true
             };
             db.ThongTinLuongNVs.Add(salary);
-            var attendance = new List<ChamCong>();
-            staff.Add((sample.Username, employee, salary, attendance));
-            var annualLeaveUsed = sample.Role == "EMPLOYEE" ? 2 : 0;
+            staff.Add((employee, salary, []));
+            var years = DataThrough.Year - person.Hired.Year - (person.Hired.AddYears(DataThrough.Year - person.Hired.Year) > DataThrough ? 1 : 0);
+            var entitlement = fixedTerm ? 12 * (12 - person.Hired.Month + 1) / 12 : 12 + years / 5;
+            var used = leaveDates.Count(x => x.Index == index && x.Status == LeaveStatus.Approved);
             db.SoDuPheps.Add(new SoDuPhep
             {
                 MaNvNavigation = employee, Nam = DataThrough.Year,
-                NgayCapNhat = DataThrough.ToDateTime(ShiftEnd), SoNgayConLai = 12 - annualLeaveUsed
+                NgayCapNhat = DataThrough.ToDateTime(ShiftEnd), SoNgayConLai = entitlement - used
             });
             db.PhepNamNhanViens.Add(new PhepNamNhanVien
             {
                 MaNvNavigation = employee, CauHinhPhepNam = leavePolicy, Nam = DataThrough.Year,
-                NgayCapNhat = DataThrough.ToDateTime(ShiftEnd), SoNgayPhepDuocCap = 12,
-                SoNgayDaSuDung = annualLeaveUsed, SoNgayChuaSuDung = 12 - annualLeaveUsed
+                NgayCapNhat = DataThrough.ToDateTime(ShiftEnd), SoNgayPhepDuocCap = entitlement,
+                SoNgayDaSuDung = used, SoNgayChuaSuDung = entitlement - used
             });
         }
 
@@ -171,18 +196,29 @@ internal static class DemoData
 
         await db.SaveChangesAsync();
         db.GioChuans.Add(BuildStandardHours(schedule.Id));
-        var director = staff.Single(x => x.Username == "demo.director").Employee;
-        var sampleEmployee = staff.Single(x => x.Username == "demo.employee").Employee;
-        var transferEmployee = staff.Single(x => x.Username == "demo.manager").Employee;
+        var director = staff[0].Employee;
+        var sampleEmployee = staff[4].Employee;
         db.WorksiteAssignments.Add(new WorksiteAssignment
         {
-            Employee = transferEmployee, Worksite = canGio, EffectiveFrom = new DateOnly(2026, 10, 1)
+            Employee = staff[2].Employee, Worksite = canGio, EffectiveFrom = new DateOnly(2026, 10, 1)
         });
-
-        var approvedLeave = new[] { new DateOnly(2026, 8, 14), new DateOnly(2026, 11, 13) };
-        AddLeave(db, sampleEmployee, leaveType, director, approvedLeave[0], "DEMO-001", LeaveStatus.Approved);
-        AddLeave(db, sampleEmployee, leaveType, director, approvedLeave[1], "DEMO-002", LeaveStatus.Approved);
-        AddLeave(db, sampleEmployee, leaveType, director, DataThrough, "DEMO-003", LeaveStatus.Pending);
+        for (var index = 0; index < staff.Count; index++)
+        {
+            if (DemoRoster.Team[index].Manager is int manager)
+                db.EmployeeReportingLines.Add(new EmployeeReportingLine
+                {
+                    Employee = staff[index].Employee, Manager = staff[manager].Employee
+                });
+        }
+        for (var index = 0; index < leaveDates.Length; index++)
+        {
+            var leave = leaveDates[index];
+            AddLeave(db, staff[leave.Index].Employee, leaveType, director, leave.Date, $"NP{index + 1:000}", leave.Status, leave.Reason);
+        }
+        var approvedLeave = leaveDates.Where(x => x.Status == LeaveStatus.Approved)
+            .Select(x => (staff[x.Index].Employee.MaNv, x.Date)).ToHashSet();
+        var pendingLeave = leaveDates.Where(x => x.Status == LeaveStatus.Pending)
+            .Select(x => (staff[x.Index].Employee.MaNv, x.Date)).ToHashSet();
         db.LoaiNgayNghis.AddRange(
             new LoaiNgayNghi { TenLoai = "Nghỉ việc riêng hưởng lương", HuongLuong = true },
             new LoaiNgayNghi { TenLoai = "Nghỉ không hưởng lương", HuongLuong = false });
@@ -194,15 +230,16 @@ internal static class DemoData
 
             foreach (var account in staff)
             {
-                if (account.Employee == sampleEmployee && date == DataThrough)
+                if (date < account.Employee.NgayVaoLam || pendingLeave.Contains((account.Employee.MaNv, date)))
                     continue;
 
-                var paidLeave = account.Employee == sampleEmployee && approvedLeave.Contains(date);
+                var paidLeave = approvedLeave.Contains((account.Employee.MaNv, date));
                 var holiday = holidayDays.Contains(date);
+                var shiftStart = account.Employee.MaNv % 3 == 0 ? new TimeOnly(8, 15) : ShiftStart;
                 var entry = new ChamCong
                 {
                     MaNv = account.Employee.MaNv, NgayLamViec = date,
-                    GioVao = paidLeave || holiday ? null : ShiftStart, GioRa = paidLeave || holiday ? null : ShiftEnd,
+                    GioVao = paidLeave || holiday ? null : shiftStart, GioRa = paidLeave || holiday ? null : shiftStart.AddHours(9),
                     TongGio = 8, TrangThai = paidLeave || holiday ? AttendanceStatus.Paidleave : AttendanceStatus.Approved,
                     GhiChu = paidLeave ? "Phép năm đã duyệt" : holiday ? "Ngày lễ hưởng lương" : null,
                     MaNvDuyet = director.MaNv, NgayDuyet = date.ToDateTime(new TimeOnly(18, 0))
@@ -217,44 +254,87 @@ internal static class DemoData
                 GioVao = ShiftEnd, GioRa = new(19, 0), TrangThai = OvertimeStatus.Approved, MaNvDuyet = director.MaNv, GhiChu = "Hỗ trợ vận hành cuối ngày" },
             new TangCa { MaNv = sampleEmployee.MaNv, NgayTangCa = new(2026, 11, 19), SoGioTangCa = 1, TyLeTangCa = 1.5m,
                 GioVao = ShiftEnd, GioRa = new(18, 0), TrangThai = OvertimeStatus.Pending, GhiChu = "Bàn giao cuối ca" });
+        foreach (var index in new[] { 8, 10, 11, 14, 15, 16, 18, 21, 22 })
+        {
+            var employee = staff[index].Employee;
+            var start = employee.MaNv % 3 == 0 ? new TimeOnly(17, 15) : ShiftEnd;
+            db.TangCas.Add(new TangCa
+            {
+                MaNv = employee.MaNv, NgayTangCa = new DateOnly(2026, 10, 22),
+                GioVao = start, GioRa = start.AddHours(1), SoGioTangCa = 1, TyLeTangCa = 1.5m,
+                TrangThai = OvertimeStatus.Approved, MaNvDuyet = director.MaNv, GhiChu = "Xử lý lô giao hàng cuối ngày"
+            });
+        }
+        var courses = new[]
+        {
+            (Department: "Kho vận", Title: "An toàn kho và quy trình giao nhận", Content: "Kiểm tra kiện hàng, phân vùng nâng hạ và bàn giao phiếu xuất."),
+            (Department: "Điều phối vận tải", Title: "Điều phối tuyến và xử lý sự cố", Content: "Xác nhận lịch xe, thông báo giao trễ và xử lý biên bản tại điểm giao."),
+            (Department: "Tài chính – Kế toán", Title: "Đối chiếu cước vận tải", Content: "Kiểm tra phụ phí, chứng từ và công nợ theo chuyến.")
+        };
+        foreach (var course in courses)
+        {
+            var training = new DaoTao
+            {
+                PhongBan = departments[course.Department], TenDaoTao = course.Title, NoiDung = course.Content,
+                NgayBatDau = new DateOnly(2026, 10, 12), NgayKetThuc = new DateOnly(2026, 11, 30)
+            };
+            db.DaoTaos.Add(training);
+            foreach (var member in staff.Where(x => x.Employee.MaPhongBan == training.PhongBan.MaPhongBan))
+                db.LichSuDaoTaos.Add(new LichSuDaoTao
+                {
+                    MaDaoTaoNavigation = training, MaNvNavigation = member.Employee,
+                    KetQua = member.Employee.MaNv % 3 == 0 ? "Chưa Hoàn Thành" : "Hoàn Thành"
+                });
+        }
         await db.SaveChangesAsync();
 
+        var payrollCount = 0;
         for (var month = StartOfYear; month.Month < DataThrough.Month; month = month.AddMonths(1))
         {
-            foreach (var account in staff)
+            for (var index = 0; index < staff.Count; index++)
             {
-                var period = month.ToDateTime(TimeOnly.MinValue);
-                var pay = await calculator.CalculatePayroll(account.Employee.MaNv, period,
-                    account.Attendance.Where(entry => entry.NgayLamViec.Month == month.Month).ToList(), account.Salary);
+                var member = staff[index];
+                var attendance = member.Attendance.Where(x => x.NgayLamViec.Month == month.Month).ToList();
+                if (attendance.Count == 0)
+                    continue;
+
+                var pay = await calculator.CalculatePayroll(member.Employee.MaNv, month.ToDateTime(TimeOnly.MinValue),
+                    attendance, member.Salary);
                 pay.NgayTao = month.AddMonths(1).ToDateTime(new TimeOnly(9, 0));
                 pay.NguoiTao = "demo.payroll";
-
-                pay.TrangThai = month.Month == 10 ? account.Username switch
+                pay.TrangThai = month.Month == 10 ? index switch
                 {
-                    "demo.hr" => PayrollStatus.SentToAccounting,
-                    "demo.manager" => PayrollStatus.AccountingApproved,
-                    "demo.payroll" => PayrollStatus.DirectorApproved,
+                    1 or 5 => PayrollStatus.SentToAccounting,
+                    2 or 6 => PayrollStatus.AccountingApproved,
+                    3 => PayrollStatus.DirectorApproved,
+                    10 or 16 => PayrollStatus.EmployeeConfirmed,
+                    11 => PayrollStatus.EmployeeRejected,
+                    15 => PayrollStatus.Created,
+                    21 => PayrollStatus.AccountingRejected,
                     _ => PayrollStatus.SentToEmployee
                 } : PayrollStatus.SentToEmployee;
                 db.BangLuongs.Add(pay);
+                payrollCount++;
             }
         }
 
         await db.SaveChangesAsync();
         await seedTransaction.CommitAsync();
-        logger.LogInformation("Demo data seeded through {Cutoff:yyyy-MM-dd}: {Employees} employees, 2 worksites, {Attendance} attendance entries, {Payrolls} payrolls, 3 leave entries.",
-            DataThrough, staff.Count, staff.Sum(x => x.Attendance.Count), staff.Count * (DataThrough.Month - 1));
+        logger.LogInformation("Demo data seeded through {Cutoff:yyyy-MM-dd}: {Employees} employees, {Sites} worksites, {Attendance} attendance entries, {Payrolls} payrolls, {Leave} leave entries.",
+            DataThrough, staff.Count, sites.Count, staff.Sum(x => x.Attendance.Count), payrollCount, leaveDates.Length);
     }
 
     private static void AddLeave(HrDbContext db, NhanVien employee, LoaiNgayNghi leaveType,
-        NhanVien director, DateOnly date, string code, string status)
+        NhanVien director, DateOnly date, string code, string status, string reason)
     {
         var submitted = date.AddDays(-3).ToDateTime(new TimeOnly(9, 0));
         db.NgayNghis.Add(new NgayNghi
         {
             MaNvNavigation = employee, MaLoaiNgayNghiNavigation = leaveType, NgayNghi1 = date,
-            NgayLamDon = submitted, NgayDuyet = submitted, NguoiDuyetId = status == LeaveStatus.Approved ? director.MaNv : null,
-            MaTrangThai = status, MaDon = code, LyDo = "Nghỉ phép cá nhân"
+            NgayLamDon = submitted, NgayDuyet = submitted,
+            NguoiDuyetId = status == LeaveStatus.Pending ? null : director.MaNv,
+            LyDoTuChoi = status == LeaveStatus.Rejected ? "Đã chốt nhân sự trực điều phối" : null,
+            MaTrangThai = status, MaDon = code, LyDo = reason
         });
     }
 
@@ -332,12 +412,19 @@ internal static class DemoData
             db.TrangThais.Add(new TrangThai { MaTrangThai = item.Code, TenTrangThai = item.Name });
     }
 
-    private static async Task AddWorksiteTablesToExistingDemoAsync(HrDbContext db)
+    private static async Task EnsureDemoExtensionsAsync(HrDbContext db)
     {
         // Demo databases are created with EnsureCreated and have no EF migration history.
         // Add only the new tables so a local SQLite demo keeps its existing records.
         await using var transaction = await db.Database.BeginTransactionAsync();
         await db.Database.ExecuteSqlRawAsync("""
+            CREATE TABLE IF NOT EXISTS EmployeeReportingLines (
+                EmployeeId INTEGER NOT NULL PRIMARY KEY REFERENCES NhanVien (MaNV) ON DELETE RESTRICT,
+                ManagerId INTEGER NOT NULL REFERENCES NhanVien (MaNV) ON DELETE RESTRICT,
+                CONSTRAINT CK_EmployeeReportingLines_DifferentEmployees CHECK (EmployeeId <> ManagerId)
+            );
+            CREATE INDEX IF NOT EXISTS IX_EmployeeReportingLines_ManagerId ON EmployeeReportingLines (ManagerId);
+
             CREATE TABLE IF NOT EXISTS Worksites (
                 Id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
                 Code TEXT NOT NULL,

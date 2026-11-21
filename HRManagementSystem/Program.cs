@@ -90,6 +90,7 @@ builder.Services.AddAuthorization(options =>
 // Cấu hình Entity Framework
 if (demoMode)
 {
+    builder.Logging.AddFilter("Microsoft.EntityFrameworkCore.Database.Command", LogLevel.Warning);
     var databasePath = builder.Configuration["Demo:DatabasePath"]
         ?? Path.Combine(Path.GetTempPath(), "hr-demo", "hr.db");
     databasePath = Path.GetFullPath(databasePath);

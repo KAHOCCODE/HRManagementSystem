@@ -495,6 +495,10 @@ Sign in as director and open **Cài Đặt → Chi nhánh và nơi làm việc**
 
 Use **Gán nhân viên** to set a worksite and effective date. The most recent effective assignment applies. Use a new assignment when a worker transfers. Payroll stops for review when a transfer falls within a pay month or when the site has no verified region for that year. Individual employment periods spanning multiple worksites and hourly contracts still need their own payroll handling.
 
-A fresh demo includes two synthetic worksites with a dated employee transfer, five accounts
-and contracts, attendance and leave through 20 November 2026, and January–October 2026
-payrolls. November attendance is available for review before calculating a full-month payroll. Existing SQLite demos add the new tables on startup. Before deploying against an existing SQL Server installation, back up the database and apply the `AddWorksites` migration after the preceding repository migrations. As elsewhere in this project, the SQL Server migration sequence assumes the original database schema.
+### Employee directory and organization chart
+
+The demo represents the fictional Công ty TNHH Logistics An Phú Nam. A fresh database starts with 24 employee profiles and original portrait assets in `wwwroot/images/employees/an-phu-nam`, seven departments, and three Ho Chi Minh City worksites. The five sign-in accounts listed above remain available. Attendance and leave run through 20 November 2026, with payrolls for completed months while each employee was employed.
+
+Directors and HR managers can open **Nhân viên → Quản lý nhân viên** to create or edit profiles. During onboarding, choose the worksite and direct manager before adding the contract and pay information. Open **Nhân viên → Sơ đồ tổ chức** to see the reporting lines. Update the direct manager in the employee profile to move their branch of the chart. Set `Organization__Name` to display the name of your organization in a separate deployment.
+
+Existing SQLite demo databases gain the new table on startup and retain their profiles. Point `Demo__DatabasePath` to a fresh database to initialize the expanded dataset. For SQL Server, apply `AddWorksites` and `AddEmployeeReportingLines` after the preceding migrations. The SQL Server migration sequence assumes the original database schema. Supply the SQL Server connection via `ConnectionStrings__Db_HR` and email credentials through deployment variables.

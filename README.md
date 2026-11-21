@@ -493,4 +493,6 @@ Sign in as director and open **Cài Đặt → Chi nhánh và nơi làm việc**
 
 Use **Gán nhân viên** to set a worksite and effective date. The most recent effective assignment applies. Use a new assignment when a worker transfers. Payroll stops for review when a transfer falls within a pay month or when the site has no verified region for that year. Individual employment periods spanning multiple worksites and hourly contracts still need their own payroll handling.
 
-The fresh demo includes two synthetic worksites. Existing SQLite demos add the new tables on startup. Before deploying against an existing SQL Server installation, back up the database and apply the `AddWorksites` migration after the preceding repository migrations. As elsewhere in this project, the SQL Server migration sequence assumes the original database schema.
+A fresh demo includes two synthetic worksites with a dated employee transfer, five accounts
+and contracts, attendance and leave through 20 November 2026, and January–October 2026
+payrolls. November attendance is available for review before calculating a full-month payroll. Existing SQLite demos add the new tables on startup. Before deploying against an existing SQL Server installation, back up the database and apply the `AddWorksites` migration after the preceding repository migrations. As elsewhere in this project, the SQL Server migration sequence assumes the original database schema.

@@ -30,7 +30,7 @@
                         
                         @if (bool.TryParse(Configuration["Demo:Enabled"], out var isDemo) && isDemo)
                         {
-                            <p class="alert alert-info">Bản dùng thử với dữ liệu mẫu. Chỉ nhập thông tin giả lập.</p>
+                            <p class="alert alert-info">Bản dùng thử với dữ liệu mẫu đến @HR_KD.Data.DemoData.DataThrough.ToString("dd/MM/yyyy"). Chỉ nhập thông tin giả lập.</p>
                         }
                         @if (TempData["Error"] != null)
                         {

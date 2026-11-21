@@ -121,7 +121,8 @@ if (demoMode)
     await using var scope = app.Services.CreateAsyncScope();
     await DemoData.InitializeAsync(
         scope.ServiceProvider.GetRequiredService<HrDbContext>(),
-        app.Configuration["Demo:Password"]);
+        scope.ServiceProvider.GetRequiredService<PayrollCalculator>(),
+        app.Configuration["Demo:Password"], app.Logger);
 }
 
 // Configure the HTTP request pipeline.

@@ -339,7 +339,7 @@ The local URL is displayed in the Visual Studio output window or terminal.
 
 Deploy the branch containing this version as a [Render Blueprint](https://dashboard.render.com/blueprints).
 The repository's `render.yaml` selects a free Docker web service and enables demo mode.
-When prompted for `Demo__Password`, set a dedicated random password of at least 16 ASCII characters.
+Render generates `Demo__Password` automatically. In the deployed service, open **Environment** to view the value.
 Use that password with any of these sample accounts:
 
 | Account | Role |

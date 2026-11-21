@@ -8,6 +8,6 @@ services:
       - key: Demo__Enabled
         value: "true"
       - key: Demo__Password
-        sync: false
+        generateValue: true
       - key: Hosting__HttpsAtProxy
         value: "true"

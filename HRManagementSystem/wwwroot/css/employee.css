@@ -497,3 +497,26 @@ tr:hover .avatar-col img {
 .swal2-cancel {
     background-color: var(--gray-500) !important;
 }
+
+
+#salaryModal .modal-dialog {
+    margin: 1.75rem auto;
+}
+
+#salaryModal .modal-content {
+    max-height: calc(100vh - 3.5rem);
+}
+
+#salaryModal .modal-body {
+    min-height: 0;
+    overflow-y: auto;
+}
+
+#salaryModal .modal-footer {
+    justify-content: flex-end;
+}
+
+@media (max-width: 575.98px) {
+    #salaryModal .modal-dialog { margin: .5rem; }
+    #salaryModal .modal-content { max-height: calc(100vh - 1rem); }
+}

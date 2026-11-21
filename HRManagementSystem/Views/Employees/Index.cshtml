@@ -23,7 +23,7 @@
                     {
                         <div class="alert alert-danger alert-dismissible fade show" role="alert">
                             <i class="fa fa-exclamation-circle me-2"></i> @TempData["ErrorMessage"]
-                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                            <button type="button" class="close" data-dismiss="alert" aria-label="Đóng"><span aria-hidden="true">&times;</span></button>
                         </div>
                     }
 
@@ -163,11 +163,11 @@
 
 <!-- Modal Thông Tin Lương -->
 <div class="modal fade" id="salaryModal" tabindex="-1" aria-labelledby="salaryModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-dialog">
         <div class="modal-content border-0 shadow">
             <div class="modal-header bg-primary text-white">
                 <h5 class="modal-title" id="salaryModalLabel">Thông Tin Lương</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                <button type="button" class="close text-white" data-dismiss="modal" aria-label="Đóng"><span aria-hidden="true">&times;</span></button>
             </div>
             <div class="modal-body">
                 <!-- Tên nhân viên -->
@@ -249,7 +249,7 @@
                 <button type="button" class="btn btn-primary btn-edit-salary" style="display: none;">
                     <i class="fa fa-edit me-1"></i> Chỉnh Sửa Lương
                 </button>
-                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                <button type="button" class="btn btn-outline-secondary" data-dismiss="modal">
                     <i class="fa fa-times me-1"></i> Đóng
                 </button>
             </div>
@@ -620,23 +620,26 @@
 
             fetch(`/api/SalaryApi/${maNv}`)
                 .then(response => {
-                    if (!response.ok) {
-                        if (response.status === 401) {
-                            throw new Error("Bạn không có quyền truy cập thông tin lương.");
-                        }
-                        if (response.status === 404) {
-                            throw new Error("Không tìm thấy thông tin lương.");
-                        }
-                        return response.text().then(text => {
-                            throw new Error(`Lỗi khi lấy thông tin lương: ${response.status}, Phản hồi: ${text}`);
-                        });
-                    }
+                    if (response.status === 404) return null;
+                    if (response.status === 401 || response.status === 403)
+                        throw new Error("Không thể truy cập thông tin lương. Hãy kiểm tra quyền hoặc phiên đăng nhập.");
+                    if (!response.ok)
+                        throw new Error("Không thể tải thông tin lương. Vui lòng thử lại.");
                     return response.json();
                 })
                 .then(data => {
                     Swal.close();
-                    document.getElementById("salaryModal").setAttribute("data-maLuongNV", data.maLuongNV);
                     document.getElementById("salaryModal").setAttribute("data-maNv", maNv);
+                    if (data === null) {
+                        document.getElementById("salaryDetails").style.display = "none";
+                        document.getElementById("noSalaryMessage").style.display = "block";
+                        document.querySelector(".btn-add-salary").style.display = "inline-block";
+                        document.querySelector(".btn-edit-salary").style.display = "none";
+                        document.getElementById("salaryModal").removeAttribute("data-maLuongNV");
+                        $("#salaryModal").modal("show");
+                        return;
+                    }
+                    document.getElementById("salaryModal").setAttribute("data-maLuongNV", data.maLuongNV);
                     document.getElementById("salaryDetails").style.display = "block";
                     document.getElementById("noSalaryMessage").style.display = "none";
                     document.querySelector(".btn-add-salary").style.display = "none";
@@ -649,18 +652,10 @@
                     document.getElementById("modalBHTN").textContent = formatCurrency(data.bhtn);
                     document.getElementById("modalNgayApDung").textContent = new Date(data.ngayApDung).toLocaleDateString('vi-VN');
                     document.getElementById("modalGhiChu").textContent = data.ghiChu || "Không có ghi chú";
-                    new bootstrap.Modal(document.getElementById("salaryModal")).show();
+                    $("#salaryModal").modal("show");
                 })
                 .catch(error => {
-                    console.error('Error fetching salary details:', error);
-                    Swal.close();
-                    document.getElementById("salaryDetails").style.display = "none";
-                    document.getElementById("noSalaryMessage").style.display = "block";
-                    document.querySelector(".btn-add-salary").style.display = "inline-block";
-                    document.querySelector(".btn-edit-salary").style.display = "none";
-                    document.getElementById("salaryModal").setAttribute("data-maNv", maNv);
-                    document.getElementById("salaryModal").removeAttribute("data-maLuongNV");
-                    new bootstrap.Modal(document.getElementById("salaryModal")).show();
+                    Swal.fire({ icon: "error", title: "Không tải được lương", text: error.message });
                 });
         }
 

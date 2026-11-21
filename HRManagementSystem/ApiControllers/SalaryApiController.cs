@@ -87,7 +87,7 @@ namespace HR_KD.Controllers.ApiControllers
                     return BadRequest("Lương, phụ cấp, thưởng không được âm.");
                 }
 
-                if (salaryDTO.NgayApDung < DateTime.Now.Date)
+                if (salaryDTO.NgayApDung.Date < DateTime.UtcNow.AddHours(7).Date)
                 {
                     return BadRequest("Ngày áp dụng không được là ngày trong quá khứ.");
                 }
@@ -161,9 +161,11 @@ namespace HR_KD.Controllers.ApiControllers
         {
             try
             {
+                await using var transaction = await _context.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable);
+                salaryDTO.NgayApDung = salaryDTO.NgayApDung.Date;
                 // Kiểm tra bản ghi lương tồn tại
                 var existingSalary = await _context.ThongTinLuongNVs
-                    .FirstOrDefaultAsync(s => s.MaLuongNV == maLuongNV);
+                    .FirstOrDefaultAsync(s => s.MaLuongNV == maLuongNV && s.MaNv == salaryDTO.MaNv);
 
                 if (existingSalary == null)
                 {
@@ -183,19 +185,19 @@ namespace HR_KD.Controllers.ApiControllers
                     return BadRequest("Lương, phụ cấp, thưởng không được âm.");
                 }
 
-                if (salaryDTO.NgayApDung < DateTime.Now.Date)
+                if (salaryDTO.NgayApDung.Date < DateTime.UtcNow.AddHours(7).Date)
                 {
                     return BadRequest("Ngày áp dụng không được là ngày trong quá khứ.");
                 }
 
                 // Kiểm tra xem có bản ghi lương nào khác với NgayApDung mới hơn hoặc bằng ngày áp dụng mới
                 var futureSalary = await _context.ThongTinLuongNVs
-                    .Where(s => s.MaNv == salaryDTO.MaNv && s.NgayApDung >= salaryDTO.NgayApDung && s.MaLuongNV != maLuongNV)
+                    .Where(s => s.MaNv == salaryDTO.MaNv && s.NgayApDung >= salaryDTO.NgayApDung)
                     .FirstOrDefaultAsync();
 
                 if (futureSalary != null)
                 {
-                    return BadRequest("Đã tồn tại thông tin lương với ngày áp dụng mới hơn hoặc bằng ngày này.");
+                    return BadRequest("Ngày áp dụng mới phải sau ngày áp dụng của các mức lương đã lưu.");
                 }
 
                 var minimumWage = await _payrollCalculator.ResolveMonthlyMinimumWage(salaryDTO.MaNv, salaryDTO.NgayApDung);
@@ -237,6 +239,7 @@ namespace HR_KD.Controllers.ApiControllers
 
                 _context.ThongTinLuongNVs.Add(newSalary);
                 await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
 
                 _logger.LogInformation("Đã cập nhật lương cho nhân viên MaNv: {MaNv}, MaLuongNV mới: {MaLuongNV}", newSalary.MaNv, newSalary.MaLuongNV);
 
@@ -255,6 +258,9 @@ namespace HR_KD.Controllers.ApiControllers
         {
             try
             {
+                if (input.NgayApDung == default)
+                    return BadRequest(new { message = "Vui lòng chọn ngày áp dụng hợp lệ." });
+
                 if (input.LuongCoBan < 0 || input.PhuCapCoDinh < 0 || input.ThuongCoDinh < 0)
                 {
                     return BadRequest("Lương cơ bản, phụ cấp cố định và thưởng cố định không được âm.");
@@ -282,7 +288,7 @@ namespace HR_KD.Controllers.ApiControllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Lỗi khi tính toán bảo hiểm: LuongCoBan={LuongCoBan}, PhuCapCoDinh={PhuCapCoDinh}, ThuongCoDinh={ThuongCoDinh}",
+                _logger.LogError(ex, "Lỗi khi tính bảo hiểm cho nhân viên {MaNv} vào {NgayApDung}: {LuongCoBan}, {PhuCapCoDinh}, {ThuongCoDinh}",
                     input.MaNv, input.NgayApDung,
                     input.LuongCoBan, input.PhuCapCoDinh, input.ThuongCoDinh);
                 return StatusCode(500, "Có lỗi xảy ra khi tính toán bảo hiểm.");

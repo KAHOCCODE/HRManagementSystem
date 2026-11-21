@@ -92,18 +92,27 @@ namespace HR_KD.Controllers
 
         #region Chỉnh sửa lương
         [Authorize(Roles = PersonnelRoles)]
-        public IActionResult EditSalary(int maLuongNV, int maNv)
+        public async Task<IActionResult> EditSalary(int maLuongNV, int maNv)
         {
-            ViewData["MaLuongNV"] = maLuongNV;
-            ViewData["MaNv"] = maNv;
+            var salary = await _context.ThongTinLuongNVs.AsNoTracking()
+                .SingleOrDefaultAsync(x => x.MaLuongNV == maLuongNV && x.MaNv == maNv);
+            if (salary == null)
+                return NotFound();
 
-            var model = new ThongTinLuongNVDTO
+            var today = DateTime.UtcNow.AddHours(7).Date;
+            var latest = await _context.ThongTinLuongNVs.Where(x => x.MaNv == maNv).MaxAsync(x => x.NgayApDung);
+            var earliest = latest.Date >= today ? latest.Date.AddDays(1) : today;
+            var nextPayPeriod = earliest.Day == 1 ? earliest : new DateTime(earliest.Year, earliest.Month, 1).AddMonths(1);
+            ViewData["EarliestEffectiveDate"] = earliest;
+            ViewData["CurrentEffectiveDate"] = salary.NgayApDung;
+
+            return View(new ThongTinLuongNVDTO
             {
-                MaLuongNV = maLuongNV,
-                MaNv = maNv
-            };
-
-            return View(model);
+                MaLuongNV = salary.MaLuongNV, MaNv = salary.MaNv, LuongCoBan = salary.LuongCoBan,
+                PhuCapCoDinh = salary.PhuCapCoDinh, ThuongCoDinh = salary.ThuongCoDinh,
+                BHXH = salary.BHXH, BHYT = salary.BHYT, BHTN = salary.BHTN,
+                NgayApDung = nextPayPeriod, GhiChu = salary.GhiChu
+            });
         }
         #endregion
 

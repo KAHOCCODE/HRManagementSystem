@@ -30,9 +30,9 @@
         <div class="p-6">
             @if (TempData["SuccessMessage"] != null)
             {
-                <div class="mb-6 p-4 bg-blue-50 text-blue-800 rounded-lg animate__animated animate__fadeIn relative" role="alert">
+                <div class="mb-6 p-4 bg-blue-50 text-blue-800 rounded-lg animate__animated animate__fadeIn relative alert" role="alert">
                     @TempData["SuccessMessage"]
-                    <button type="button" class="absolute top-3 right-3 text-blue-600 hover:text-blue-800" data-bs-dismiss="alert" aria-label="Close">
+                    <button type="button" class="absolute top-3 right-3 text-blue-600 hover:text-blue-800" data-dismiss="alert" aria-label="Đóng">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                     </button>
                 </div>
@@ -40,9 +40,9 @@
 
             @if (TempData["ErrorMessage"] != null)
             {
-                <div class="mb-6 p-4 bg-red-50 text-red-800 rounded-lg animate__animated animate__fadeIn relative" role="alert">
+                <div class="mb-6 p-4 bg-red-50 text-red-800 rounded-lg animate__animated animate__fadeIn relative alert" role="alert">
                     @TempData["ErrorMessage"]
-                    <button type="button" class="absolute top-3 right-3 text-red-600 hover:text-red-800" data-bs-dismiss="alert" aria-label="Close">
+                    <button type="button" class="absolute top-3 right-3 text-red-600 hover:text-red-800" data-dismiss="alert" aria-label="Đóng">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                     </button>
                 </div>

@@ -46,9 +46,12 @@ public sealed class OrganizationMember
     public string Name { get; init; } = "";
     public string Position { get; init; } = "";
     public string Department { get; init; } = "";
-    public string? Worksite { get; init; }
+    public int? WorksiteId { get; init; }
+    public string? Worksite { get; set; }
     public string? AvatarUrl { get; init; }
     public List<OrganizationMember> Reports { get; } = [];
 }
 
-public sealed record OrganizationChartPage(string Name, int EmployeeCount, IReadOnlyList<OrganizationMember> Roots);
+public sealed record OrganizationWorksite(int Id, string Name);
+public sealed record OrganizationChartPage(string Name, int EmployeeCount, IReadOnlyList<OrganizationMember> Roots,
+    IReadOnlyList<OrganizationWorksite> Worksites, int? SelectedWorksiteId);

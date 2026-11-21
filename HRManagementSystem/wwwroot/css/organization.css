@@ -16,6 +16,7 @@
     margin-bottom: 16px;
 }
 .organization-search { flex: 1 1 260px; max-width: 410px; }
+.organization-worksites { flex: 1 1 210px; max-width: 290px; }
 .organization-scale {
     display: grid;
     place-items: center;
@@ -62,7 +63,7 @@
     justify-items: center;
     align-content: start;
     width: 184px;
-    min-height: 166px;
+    min-height: 184px;
     padding: 13px 10px 10px;
     text-align: center;
     background: #fff;
@@ -76,6 +77,8 @@
 .organization-name { color: #153f5a; font-weight: 700; line-height: 1.2; }
 .organization-person-text > span { font-size: .82rem; line-height: 1.25; }
 .organization-person-text small { font-size: .72rem; line-height: 1.25; }
+.organization-worksite-label { color: #175b82; font-weight: 600; }
+.organization-person.is-context { background-color: #f8fafc; border-top-color: #91a9bb; }
 .organization-person.is-match { outline: 2px solid #009efb; outline-offset: 2px; }
 .organization-toggle {
     z-index: 1;

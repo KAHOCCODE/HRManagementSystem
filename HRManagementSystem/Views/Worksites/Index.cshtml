@@ -51,7 +51,10 @@
                         <td>@site.Address, @site.Ward, @site.Province</td>
                         <td>@WageLabel(2026, site.Region2026)</td>
                         <td>@WageLabel(2027, site.Region2027)</td>
-                        <td><a asp-action="Edit" asp-route-id="@site.Id">Chỉnh thông tin</a></td>
+                        <td>
+                            <a class="btn btn-sm btn-outline-primary" asp-controller="Employees" asp-action="Organization" asp-route-worksiteId="@site.Id">Xem sơ đồ</a>
+                            <a class="btn btn-sm btn-outline-secondary" asp-action="Edit" asp-route-id="@site.Id">Chỉnh thông tin</a>
+                        </td>
                     </tr>
                 }
                 </tbody>

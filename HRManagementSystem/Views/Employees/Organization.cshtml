@@ -28,8 +28,19 @@
             {
                 <div class="organization-toolbar">
                     <div class="form-group organization-search mb-0">
-                        <label for="organization-search">Tìm người, phòng ban hoặc nơi làm việc</label>
+                        <label for="organization-search">Tìm nhân viên, chức vụ hoặc phòng ban</label>
                         <input id="organization-search" class="form-control" type="search">
+                    </div>
+                    <div class="form-group organization-worksites mb-0">
+                        <label for="organization-worksite">Chi nhánh / nơi làm việc</label>
+                        <select id="organization-worksite" class="form-control">
+                            <option value="">Tất cả nơi làm việc</option>
+                            @foreach (var site in Model.Worksites)
+                            {
+                                <option value="@site.Id" selected="@(Model.SelectedWorksiteId == site.Id)">@site.Name</option>
+                            }
+                            <option value="unassigned">Chưa gán nơi làm việc</option>
+                        </select>
                     </div>
                     <div class="btn-group" role="group" aria-label="Điều chỉnh sơ đồ">
                         <button id="organization-zoom-out" class="btn btn-outline-primary btn-sm" type="button" aria-label="Thu nhỏ"><i class="fa fa-minus" aria-hidden="true"></i></button>
@@ -38,6 +49,7 @@
                         <button id="organization-fit" class="btn btn-outline-primary btn-sm" type="button">Vừa khung</button>
                     </div>
                 </div>
+                <p id="organization-filter-status" class="text-muted mb-2" hidden role="status"></p>
                 <p id="organization-empty" class="text-muted mt-3" hidden role="status">Không tìm thấy nhân viên phù hợp.</p>
                 <div id="organization-viewport" class="organization-viewport" tabindex="0" role="region" aria-label="Sơ đồ phân cấp nhân viên">
                     <ul id="organization-tree" class="organization-forest" aria-label="Cấp quản lý cao nhất">

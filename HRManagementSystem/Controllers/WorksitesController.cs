@@ -114,11 +114,17 @@ public sealed class WorksitesController(HrDbContext db) : Controller
     public async Task<IActionResult> Assign(int employeeId, int worksiteId, DateOnly effectiveFrom)
     {
         await using var transaction = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable);
+        var employee = await db.NhanViens.AsNoTracking().Where(x => x.MaNv == employeeId)
+            .Select(x => new { x.NgayVaoLam }).SingleOrDefaultAsync();
         if (effectiveFrom == default
-            || !await db.NhanViens.AnyAsync(x => x.MaNv == employeeId)
+            || employee == null
             || !await db.Worksites.AnyAsync(x => x.Id == worksiteId))
         {
             ModelState.AddModelError("", "Chọn nhân viên, chi nhánh và ngày bắt đầu hợp lệ.");
+        }
+        else if (employee.NgayVaoLam is DateOnly hireDate && effectiveFrom < hireDate)
+        {
+            ModelState.AddModelError("", "Ngày bắt đầu tại chi nhánh phải từ ngày vào làm trở đi.");
         }
         else if (await db.WorksiteAssignments.AnyAsync(x => x.EmployeeId == employeeId && x.EffectiveFrom == effectiveFrom))
         {
@@ -133,12 +139,15 @@ public sealed class WorksitesController(HrDbContext db) : Controller
         if (!ModelState.IsValid)
         {
             await LoadAssignmentChoices(employeeId);
+            ViewBag.SelectedWorksiteId = worksiteId;
+            ViewBag.EffectiveFrom = effectiveFrom == default ? null : effectiveFrom.ToString("yyyy-MM-dd");
             return View();
         }
 
         db.WorksiteAssignments.Add(new WorksiteAssignment { EmployeeId = employeeId, WorksiteId = worksiteId, EffectiveFrom = effectiveFrom });
         await db.SaveChangesAsync();
         await transaction.CommitAsync();
+        TempData["WorksiteAssignmentSaved"] = "Đã lưu nơi làm việc.";
         return RedirectToAction(nameof(Assign), new { employeeId });
     }
 

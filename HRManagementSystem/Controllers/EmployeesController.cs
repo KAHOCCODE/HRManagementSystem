@@ -202,9 +202,12 @@ namespace HR_KD.Controllers
 
         [HttpGet]
         [Authorize]
-        public async Task<IActionResult> Organization([FromServices] IConfiguration configuration)
+        public async Task<IActionResult> Organization(int? worksiteId, [FromServices] IConfiguration configuration)
         {
             var today = DateOnly.FromDateTime(DateTime.UtcNow.AddHours(7));
+            var worksites = await _context.Worksites.OrderBy(site => site.Name).ThenBy(site => site.Id)
+                .Select(site => new OrganizationWorksite(site.Id, site.Name)).ToListAsync();
+            var worksiteNames = worksites.ToDictionary(site => site.Id, site => site.Name);
             var members = await _context.NhanViens.AsNoTracking().OrderBy(x => x.HoTen)
                 .Select(x => new OrganizationMember
                 {
@@ -212,8 +215,8 @@ namespace HR_KD.Controllers
                     Department = x.MaPhongBanNavigation.TenPhongBan, AvatarUrl = x.AvatarUrl,
                     ManagerId = _context.EmployeeReportingLines.Where(line => line.EmployeeId == x.MaNv)
                         .Select(line => (int?)line.ManagerId).FirstOrDefault(),
-                    Worksite = _context.WorksiteAssignments.Where(site => site.EmployeeId == x.MaNv && site.EffectiveFrom <= today)
-                        .OrderByDescending(site => site.EffectiveFrom).Select(site => site.Worksite.Name).FirstOrDefault()
+                    WorksiteId = _context.WorksiteAssignments.Where(site => site.EmployeeId == x.MaNv && site.EffectiveFrom <= today)
+                        .OrderByDescending(site => site.EffectiveFrom).Select(site => (int?)site.WorksiteId).FirstOrDefault()
                 }).ToListAsync();
             var byId = members.ToDictionary(x => x.Id);
             var managers = members.Where(x => x.ManagerId.HasValue).ToDictionary(x => x.Id, x => x.ManagerId!.Value);
@@ -221,6 +224,9 @@ namespace HR_KD.Controllers
 
             foreach (var member in members)
             {
+                if (member.WorksiteId is int memberWorksiteId)
+                    member.Worksite = worksiteNames.GetValueOrDefault(memberWorksiteId);
+
                 if (member.ManagerId is int id && byId.TryGetValue(id, out var manager)
                     && !HasReportingCycle(member.Id, id, managers))
                     manager.Reports.Add(member);
@@ -233,7 +239,8 @@ namespace HR_KD.Controllers
 
             var company = configuration["Organization:Name"] ??
                 (configuration.GetValue<bool>("Demo:Enabled") ? DemoRoster.CompanyName : "Công ty");
-            return View(new OrganizationChartPage(company, members.Count, roots));
+            var selectedWorksiteId = worksiteId is int requestedWorksiteId && worksiteNames.ContainsKey(requestedWorksiteId) ? worksiteId : null;
+            return View(new OrganizationChartPage(company, members.Count, roots, worksites, selectedWorksiteId));
         }
 
         private static bool HasReportingCycle(int employeeId, int managerId, IReadOnlyDictionary<int, int> managers)

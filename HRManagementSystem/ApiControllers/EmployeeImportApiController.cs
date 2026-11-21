@@ -1,12 +1,12 @@
-﻿using HR_KD.DTOs;
+﻿using Microsoft.AspNetCore.Authorization;
 using HR_KD.Services;
 using Microsoft.AspNetCore.Mvc;
-using Newtonsoft.Json;
 
 namespace HR_KD.ApiControllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize(Roles = "EMPLOYEE_MANAGER,DIRECTOR")]
     public class EmployeeImportApiController : ControllerBase
     {
         private readonly ExcelTemplateService _excelService;

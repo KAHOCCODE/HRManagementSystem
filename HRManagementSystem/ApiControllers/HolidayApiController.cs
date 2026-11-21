@@ -41,6 +41,7 @@ namespace HR_KD.Controllers
         }
 
         [HttpPost("Add")]
+        [Authorize(Roles = "EMPLOYEE_MANAGER")]
         public async Task<ActionResult> Add([FromBody] NgayLe holiday)
         {
             try
@@ -92,10 +93,12 @@ namespace HR_KD.Controllers
         }
 
         [HttpDelete("Delete/{id}")]
+        [Authorize(Roles = "EMPLOYEE_MANAGER")]
         public async Task<ActionResult> Delete(int id)
         {
             try
             {
+                await using var transaction = await _context.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable);
                 var holiday = await _context.NgayLes.FindAsync(id);
                 if (holiday == null)
                 {
@@ -118,15 +121,14 @@ namespace HR_KD.Controllers
                     return BadRequest(new { success = false, message = "Chức năng xóa ngày lễ chỉ được mở trong khoảng thời gian từ 1/12 đến 30/12 hoặc khi có yêu cầu được duyệt cho năm hiện tại." });
                 }
 
-                // Delete related attendance records
-                var deletedAttendanceCount = await _context.ChamCongs
-                    .Where(cc => cc.NgayLamViec == holiday.NgayLe1)
-                    .ExecuteDeleteAsync();
+                if (holiday.TrangThai is "NL4" or "NL5")
+                    return Conflict(new { success = false, message = "Hủy duyệt ngày lễ trước khi xóa." });
 
                 _context.NgayLes.Remove(holiday);
                 await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
 
-                return Ok(new { success = true, message = "Xóa ngày lễ thành công.", deletedAttendanceCount });
+                return Ok(new { success = true, message = "Xóa ngày lễ thành công." });
             }
             catch (Exception ex)
             {
@@ -142,7 +144,7 @@ namespace HR_KD.Controllers
                 var exists = await _context.YeuCaus
                     .AnyAsync(y => y.TenYeuCau == "Yêu cầu mở duyệt ngày lễ" &&
                                    y.MoTa.Contains($"năm {year}") &&
-                                   !y.TrangThai);
+                                   !y.TrangThai && y.NgayDuyet == null);
                 return Ok(new { exists });
             }
             catch (Exception ex)
@@ -171,6 +173,7 @@ namespace HR_KD.Controllers
         }
 
         [HttpPost("RequestOpenApproval")]
+        [Authorize(Roles = "EMPLOYEE_MANAGER")]
         public async Task<ActionResult> RequestOpenApproval([FromBody] YeuCau request)
         {
             try
@@ -189,22 +192,28 @@ namespace HR_KD.Controllers
                 }
                 var year = int.Parse(yearMatch.Groups[1].Value);
 
+                if (year is < 1900 or > 9999)
+                    return BadRequest(new { success = false, message = "Năm đề nghị không hợp lệ." });
+
+                await using var transaction = await _context.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable);
                 var existingRequest = await _context.YeuCaus
                     .AnyAsync(y => y.TenYeuCau == "Yêu cầu mở duyệt ngày lễ" &&
                                    y.MoTa.Contains($"năm {year}") &&
-                                   !y.TrangThai);
+                                   !y.TrangThai && y.NgayDuyet == null);
                 if (existingRequest)
                 {
                     return BadRequest(new { success = false, message = $"Đã có yêu cầu mở duyệt đang chờ xử lý cho năm {year}." });
                 }
 
-                // Add request
-                request.NgayTao = DateTime.Now;
-                request.MaNvTao = User.Claims.FirstOrDefault(c => c.Type == "MaNV")?.Value;
-                request.TrangThai = false;
-
-                _context.YeuCaus.Add(request);
+                _context.YeuCaus.Add(new YeuCau
+                {
+                    TenYeuCau = request.TenYeuCau,
+                    MoTa = request.MoTa.Trim(),
+                    NgayTao = DateTime.Now,
+                    MaNvTao = User.FindFirst("MaNV")?.Value
+                });
                 await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
 
                 return Ok(new { success = true, message = "Yêu cầu đã được gửi thành công." });
             }

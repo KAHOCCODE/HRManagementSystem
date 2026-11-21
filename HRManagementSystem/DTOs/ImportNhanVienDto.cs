@@ -15,6 +15,9 @@
         public int? MaChucVu { get; set; }
         public int? MaPhongBan { get; set; }
 
+        public int? WorksiteId { get; set; }
+        public int? ManagerId { get; set; }
+
         public DateTime NgayVaoLam { get; set; }
         public string? RowError { get; set; }
         public int RowIndex { get; set; }

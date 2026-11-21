@@ -293,16 +293,21 @@
             });
     }
 
+    async function readHolidayResult(response) {
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok || result.success === false) {
+            throw new Error(result.message || 'Không thực hiện được thao tác. Hãy kiểm tra quyền hoặc đăng nhập lại.');
+        }
+        return result;
+    }
+
     function approveHoliday(holidayId) {
         showLoading();
         fetch(`/api/holidaymanager/approve/${holidayId}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' }
         })
-            .then(response => {
-                if (!response.ok) throw new Error('Không thể duyệt ngày lễ: ' + response.status);
-                return response.json();
-            })
+            .then(readHolidayResult)
             .then(result => {
                 alert(result.message);
                 loadHolidays();
@@ -321,10 +326,7 @@
             method: 'POST',
             headers: { 'Content-Type': 'application/json' }
         })
-            .then(response => {
-                if (!response.ok) throw new Error('Không thể từ chối ngày lễ: ' + response.status);
-                return response.json();
-            })
+            .then(readHolidayResult)
             .then(result => {
                 alert(result.message);
                 loadHolidays();
@@ -338,16 +340,13 @@
     }
 
     function cancelHoliday(holidayId) {
-        if (confirm('Bạn có chắc chắn muốn hủy ngày lễ này? Trạng thái sẽ chuyển về trạng thái ban đầu và tất cả chấm công liên quan sẽ bị xóa.')) {
+        if (confirm('Đưa ngày lễ về trạng thái chờ duyệt? Hệ thống giữ nguyên công thực tế và chỉ gỡ công do bước duyệt ngày lễ tạo ra.')) {
             showLoading();
             fetch(`/api/holidaymanager/cancel/${holidayId}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' }
             })
-                .then(response => {
-                    if (!response.ok) throw new Error('Không thể hủy ngày lễ: ' + response.status);
-                    return response.json();
-                })
+                .then(readHolidayResult)
                 .then(result => {
                     alert(result.message);
                     loadHolidays();
@@ -375,10 +374,7 @@
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' }
             })
-                .then(response => {
-                    if (!response.ok) throw new Error('Không thể duyệt các ngày lễ: ' + response.status);
-                    return response.json();
-                })
+                .then(readHolidayResult)
                 .then(result => {
                     alert(result.message);
                     loadHolidays();

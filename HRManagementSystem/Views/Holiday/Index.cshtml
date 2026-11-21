@@ -565,7 +565,7 @@
                 .then(result => {
                     if (result.success) {
                         deleteModal.modal("hide");
-                        alert(`Đã xóa ngày lễ và ${result.deletedAttendanceCount} bản ghi chấm công liên quan thành công!`);
+                        alert(result.message);
                         fetchExistingHolidays().then(() => {
                             initializeDatePicker();
                             fetchHolidays(document.getElementById('yearFilter').value);

@@ -1,8 +1,9 @@
-﻿using HR_KD.Data;
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace HR_KD.Controllers
 {
+    [Authorize(Roles = "DIRECTOR")]
     public class HolidayManagerController : Controller
     {
         public IActionResult Index()

@@ -9,10 +9,18 @@
             <h2 class="mb-0 fw-bold"><i class="fa fa-file-excel-o me-2"></i>Import Nhân Viên</h2>
         </div>
         <div class="card-body p-4">
+            @if (TempData["ImportError"] is string error)
+            {
+                <div class="alert alert-danger" role="alert">@error</div>
+            }
+            @if (TempData["ImportSummary"] is string summary)
+            {
+                <div class="alert alert-info" role="status">@summary</div>
+            }
             <ol class="text-muted small">
                 <li>Tải file mẫu Excel</li>
                 <li>Nhập thông tin tại Sheet <code>NhanVienImport</code></li>
-                <li>Tạo folder <code>wwwroot/avatars</code> và đặt tên file ảnh theo cú pháp <code>email-sdt.jpg</code></li>
+                <li>Tra mã chi nhánh và quản lý trực tiếp trong trang <code>DanhMucThamChieu</code>.</li>
                 <li>Sau đó upload file Excel để xem trước và lưu hàng loạt</li>
             </ol>
 

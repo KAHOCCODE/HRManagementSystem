@@ -5,6 +5,7 @@ using HR_KD.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Newtonsoft.Json;
+using Microsoft.EntityFrameworkCore;
 
 namespace HR_KD.Controllers
 {
@@ -39,24 +40,36 @@ namespace HR_KD.Controllers
 
         #region Upload + Review dữ liệu từ Excel
         [HttpPost("Upload")]
+        [ValidateAntiForgeryToken]
         public async Task<IActionResult> UploadExcel(IFormFile file)
         {
-            if (file == null || file.Length == 0)
-                return RedirectToAction("Index");
-
-            using var stream = file.OpenReadStream();
-            var result = await _excelService.ParseExcelWithValidation(stream);
-
-            // Gắn lỗi vào từng dòng (dễ render màu)
-            foreach (var emp in result.Employees)
+            if (file == null || file.Length == 0 || !Path.GetExtension(file.FileName).Equals(".xlsx", StringComparison.OrdinalIgnoreCase))
             {
-                emp.RowIndex = result.Employees.IndexOf(emp) + 2; // để log lại dòng excel nếu cần
-                if (result.Errors.TryGetValue(emp.RowIndex, out var error))
-                    emp.RowError = error;
+                TempData["ImportError"] = "Chọn tệp Excel .xlsx có dữ liệu.";
+                return RedirectToAction(nameof(Index));
+            }
+
+            HttpContext.Session.Remove("ImportedEmployees");
+            ExcelImportResult result;
+            try
+            {
+                using var stream = file.OpenReadStream();
+                result = await _excelService.ParseExcelWithValidation(stream);
+            }
+            catch (Exception ex) when (ex is InvalidDataException or IOException or InvalidOperationException or ArgumentException)
+            {
+                _logger.LogWarning(ex, "Không đọc được tệp nhập nhân viên.");
+                TempData["ImportError"] = "Không đọc được tệp. Hãy kiểm tra lại tệp .xlsx.";
+                return RedirectToAction(nameof(Index));
+            }
+
+            if (result.Employees.Count == 0)
+            {
+                TempData["ImportError"] = result.Errors.GetValueOrDefault(0) ?? "Tệp Excel chưa có dữ liệu nhân viên.";
+                return RedirectToAction(nameof(Index));
             }
 
             HttpContext.Session.SetString("ImportedEmployees", JsonConvert.SerializeObject(result.Employees));
-            HttpContext.Session.SetString("ImportErrors", JsonConvert.SerializeObject(result.Errors));
 
             return RedirectToAction("Review");
         }
@@ -66,82 +79,95 @@ namespace HR_KD.Controllers
         public IActionResult Review()
         {
             var json = HttpContext.Session.GetString("ImportedEmployees");
-            var errJson = HttpContext.Session.GetString("ImportErrors");
 
             if (string.IsNullOrEmpty(json)) return RedirectToAction("Index");
 
             var employees = JsonConvert.DeserializeObject<List<ImportNhanVienDto>>(json);
-            var errors = JsonConvert.DeserializeObject<Dictionary<int, string>>(errJson ?? "{}");
-
-            ViewBag.Errors = errors;
             ViewBag.ChucVus = _context.ChucVus.ToDictionary(c => c.MaChucVu, c => c.TenChucVu);
             ViewBag.PhongBans = _context.PhongBans.ToDictionary(p => p.MaPhongBan, p => p.TenPhongBan);
 
+            ViewBag.Worksites = _context.Worksites.OrderBy(s => s.Name).ToDictionary(s => s.Id, s => s.Name);
+            ViewBag.Managers = _context.NhanViens.OrderBy(n => n.HoTen).ToDictionary(n => n.MaNv, n => n.HoTen);
             return View(employees);
         }
         #endregion
 
         #region Lưu hàng loạt
         [HttpPost("/api/EmployeesApi/SaveImportBatch")]
-        public IActionResult SaveImportBatch([FromForm] List<ImportNhanVienDto> list)
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> SaveImportBatch([FromForm] List<ImportNhanVienDto> list)
         {
+            if (list.Count == 0)
+            {
+                TempData["ImportError"] = "Chưa có dòng nhân viên để lưu.";
+                return RedirectToAction(nameof(Index));
+            }
+
             var savedCount = 0;
             var activationEmailsFailed = 0;
-
+            var pending = new List<ImportNhanVienDto>();
             foreach (var dto in list)
             {
                 try
                 {
-                    // Skip nếu lỗi
-                    if (!string.IsNullOrEmpty(dto.RowError)) continue;
+                    await using var transaction = await _context.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable);
+                    dto.RowError = await _excelService.ValidateAsync(dto);
+                    if (dto.RowError != null)
+                    {
+                        pending.Add(dto);
+                        continue;
+                    }
 
-                    // Kiểm tra trùng
-                    if (_context.TaiKhoans.Any(x => x.Username == dto.Sdt)) continue;
-                    if (_context.NhanViens.Any(x => x.Email == dto.Email)) continue;
-
-                    using var transaction = _context.Database.BeginTransaction();
-                    var nv = new NhanVien
+                    var employee = new NhanVien
                     {
                         HoTen = dto.HoTen,
                         NgaySinh = DateOnly.FromDateTime(dto.NgaySinh),
                         GioiTinh = dto.GioiTinh,
-                        DiaChi = "", // Tùy nhập sau
+                        DiaChi = "",
                         Sdt = dto.Sdt,
                         Email = dto.Email,
                         TrinhDoHocVan = dto.TrinhDoHocVan,
-                        MaPhongBan = dto.MaPhongBan ?? 0,
-                        MaChucVu = dto.MaChucVu ?? 0,
-                        NgayVaoLam = DateOnly.FromDateTime(dto.NgayVaoLam),
-                        AvatarUrl = null
+                        MaPhongBan = dto.MaPhongBan.GetValueOrDefault(),
+                        MaChucVu = dto.MaChucVu.GetValueOrDefault(),
+                        NgayVaoLam = DateOnly.FromDateTime(dto.NgayVaoLam)
                     };
 
-                    _context.NhanViens.Add(nv);
-                    _context.SaveChanges();
+                    _context.NhanViens.Add(employee);
+                    await _context.SaveChangesAsync();
 
-                    // Tạo tài khoản
-                    string username = _usernameGen.GenerateUsername(dto.HoTen, nv.MaNv);
+                    if (dto.WorksiteId is int siteId)
+                        _context.WorksiteAssignments.Add(new WorksiteAssignment
+                        {
+                            EmployeeId = employee.MaNv,
+                            WorksiteId = siteId,
+                            EffectiveFrom = employee.NgayVaoLam.Value
+                        });
+                    if (dto.ManagerId is int managerId)
+                        _context.EmployeeReportingLines.Add(new EmployeeReportingLine
+                        {
+                            EmployeeId = employee.MaNv,
+                            ManagerId = managerId
+                        });
+
+                    string username = _usernameGen.GenerateUsername(dto.HoTen, employee.MaNv);
                     string pass = PasswordHelper.CreateTemporaryPassword();
                     string salt = PasswordHelper.GenerateRandomKey();
                     string hash = PasswordHelper.HashTemporaryPassword(pass, salt);
-
-                    var acc = new TaiKhoan
+                    _context.TaiKhoans.Add(new TaiKhoan
                     {
                         Username = username,
                         PasswordHash = hash,
                         PasswordSalt = salt,
-                        MaNv = nv.MaNv
-                    };
-
-                    _context.TaiKhoans.Add(acc);
-
+                        MaNv = employee.MaNv
+                    });
                     _context.TaiKhoanQuyenHans.Add(new TaiKhoanQuyenHan
                     {
                         Username = username,
                         MaQuyenHan = "EMPLOYEE"
                     });
 
-                    _context.SaveChanges();
-                    transaction.Commit();
+                    await _context.SaveChangesAsync();
+                    await transaction.CommitAsync();
                     savedCount++;
                     try
                     {
@@ -150,17 +176,30 @@ namespace HR_KD.Controllers
                     catch (Exception ex)
                     {
                         activationEmailsFailed++;
-                        _logger.LogError(ex, "Không gửi được thư kích hoạt sau khi nhập nhân viên {EmployeeId}.", nv.MaNv);
+                        _logger.LogError(ex, "Không gửi được thư kích hoạt cho nhân viên {EmployeeId}.", employee.MaNv);
                     }
                 }
                 catch (Exception ex)
                 {
                     _context.ChangeTracker.Clear();
                     _logger.LogWarning(ex, "Không thể nhập nhân viên tại dòng {RowIndex}.", dto.RowIndex);
+                    dto.RowError = "Không lưu được dòng này. Kiểm tra dữ liệu rồi thử lại.";
+                    pending.Add(dto);
                 }
             }
 
-            return Json(new { success = true, message = $"Đã lưu {savedCount} nhân viên. Số thư kích hoạt gửi lỗi: {activationEmailsFailed}." });
+            var summary = $"Đã lưu {savedCount} nhân viên. Còn {pending.Count} dòng cần kiểm tra.";
+            if (activationEmailsFailed > 0)
+                summary += $" Có {activationEmailsFailed} thư kích hoạt chưa gửi được.";
+            TempData["ImportSummary"] = summary;
+            if (pending.Count > 0)
+            {
+                HttpContext.Session.SetString("ImportedEmployees", JsonConvert.SerializeObject(pending));
+                return RedirectToAction(nameof(Review));
+            }
+
+            HttpContext.Session.Remove("ImportedEmployees");
+            return RedirectToAction(nameof(Index));
         }
         #endregion
     }

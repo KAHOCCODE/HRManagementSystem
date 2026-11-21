@@ -13,7 +13,7 @@ namespace HR_KD.Controllers
 {
     [ApiController]
     [Route("api/holidaymanager")]
-    [Authorize]
+    [Authorize(Roles = "DIRECTOR")]
     public class HolidayManagerApiController : ControllerBase
     {
         private readonly HrDbContext _context;
@@ -81,97 +81,23 @@ namespace HR_KD.Controllers
         }
 
         [HttpPost("approve/{id}")]
-        
         public async Task<IActionResult> Approve(int id)
         {
-            try
-            {
-                var approverMaNV = User.Claims.FirstOrDefault(c => c.Type == "MaNV")?.Value;
-                var approverName = User.Claims.FirstOrDefault(c => c.Type == "TenNV")?.Value;
+            await using var transaction = await _context.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable);
+            var holiday = await _context.NgayLes.FindAsync(id);
+            if (holiday == null)
+                return NotFound(new { success = false, message = "Không tìm thấy ngày lễ." });
+            if (holiday.TrangThai is TrangThai.NL4 or TrangThai.NL5)
+                return Ok(new { success = true, message = "Ngày lễ đã được duyệt." });
+            if (holiday.TrangThai is not (TrangThai.NL1 or TrangThai.NL2 or TrangThai.NL3))
+                return Conflict(new { success = false, message = "Đưa ngày lễ về trạng thái chờ duyệt trước khi duyệt lại." });
+            if (await HasPayroll(holiday.NgayLe1))
+                return PayrollConflict();
 
-                if (string.IsNullOrEmpty(approverMaNV))
-                {
-                    return BadRequest(new { success = false, message = "Không tìm thấy thông tin người duyệt." });
-                }
-
-                var holiday = await _context.NgayLes.FindAsync(id);
-                if (holiday == null)
-                {
-                    return NotFound(new { success = false, message = "Không tìm thấy ngày lễ." });
-                }
-
-                if (holiday.TrangThai == TrangThai.NL4 || holiday.TrangThai == TrangThai.NL5)
-                {
-                    return Ok(new { success = true, message = $"Ngày lễ ID {id} đã được duyệt trước đó." });
-                }
-
-                if (holiday.TrangThai == TrangThai.NL1 || holiday.TrangThai == TrangThai.NL2)
-                {
-                    if (holiday.TrangThai == TrangThai.NL1)
-                    {
-                        holiday.TrangThai = TrangThai.NL4;
-                        var allEmployees = await _context.NhanViens.ToListAsync();
-                        foreach (var employee in allEmployees)
-                        {
-                            var existingAttendance = await _context.ChamCongs.FirstOrDefaultAsync(
-                                cc => cc.MaNv == employee.MaNv && cc.NgayLamViec == holiday.NgayLe1);
-                            if (existingAttendance == null)
-                            {
-                                var attendance = new ChamCong
-                                {
-                                    MaNv = employee.MaNv,
-                                    NgayLamViec = holiday.NgayLe1,
-                                    GioVao = new TimeOnly(8, 0, 0),
-                                    GioRa = new TimeOnly(18, 0, 0),
-                                    TongGio = 8.0m,
-                                    TrangThai = "CC3",
-                                    GhiChu = $"Ngày lễ: {holiday.TenNgayLe} - Được duyệt bởi: {approverName}"
-                                };
-                                _context.ChamCongs.Add(attendance);
-                            }
-                        }
-                    }
-                    else if (holiday.TrangThai == TrangThai.NL2)
-                    {
-                        holiday.TrangThai = TrangThai.NL5;
-                    }
-                }
-                else if (holiday.TrangThai == TrangThai.NL3)
-                {
-                    holiday.TrangThai = TrangThai.NL4;
-                    var allEmployees = await _context.NhanViens.ToListAsync();
-                    foreach (var employee in allEmployees)
-                    {
-                        var existingAttendance = await _context.ChamCongs.FirstOrDefaultAsync(
-                            cc => cc.MaNv == employee.MaNv && cc.NgayLamViec == holiday.NgayLe1);
-                        if (existingAttendance == null)
-                        {
-                            var attendance = new ChamCong
-                            {
-                                MaNv = employee.MaNv,
-                                NgayLamViec = holiday.NgayLe1,
-                                GioVao = new TimeOnly(8, 0, 0),
-                                GioRa = new TimeOnly(18, 0, 0),
-                                TongGio = 8.0m,
-                                TrangThai = "CC3",
-                                GhiChu = $"Ngày nghỉ bù: {holiday.TenNgayLe} - Được duyệt bởi: {approverName}"
-                            };
-                            _context.ChamCongs.Add(attendance);
-                        }
-                    }
-                }
-
-                holiday.MoTa = $"{holiday.MoTa ?? ""}\nĐược duyệt bởi: {approverName} ({approverMaNV}) vào ngày {DateTime.Now:dd/MM/yyyy HH:mm}";
-
-                await _context.SaveChangesAsync();
-                
-
-                return Ok(new { success = true, message = $"Ngày lễ ID {id} đã được duyệt bởi {approverName} và thông báo đã được gửi." });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { success = false, message = "Lỗi khi duyệt ngày lễ.", error = ex.Message });
-            }
+            await ApplyApproval(holiday);
+            await _context.SaveChangesAsync();
+            await transaction.CommitAsync();
+            return Ok(new { success = true, message = "Đã duyệt ngày lễ." });
         }
 
         [HttpPost("reject/{id}")]
@@ -188,15 +114,22 @@ namespace HR_KD.Controllers
                     return BadRequest(new { success = false, message = "Không tìm thấy thông tin người từ chối." });
                 }
 
+                await using var transaction = await _context.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable);
                 var holiday = await _context.NgayLes.FindAsync(id);
                 if (holiday == null)
                 {
                     return NotFound(new { success = false, message = "Không tìm thấy ngày lễ." });
                 }
 
+                if (holiday.TrangThai is TrangThai.NL4 or TrangThai.NL5)
+                    return Conflict(new { success = false, message = "Hủy duyệt trước khi từ chối ngày lễ." });
+                if (holiday.TrangThai == TrangThai.NL6)
+                    return Ok(new { success = true, message = "Ngày lễ đã bị từ chối." });
+
                 holiday.TrangThai = TrangThai.NL6;
                 holiday.MoTa = $"{holiday.MoTa ?? ""}\nBị từ chối bởi: {rejecterName} ({rejecterMaNV}) vào ngày {DateTime.Now:dd/MM/yyyy HH:mm}";
                 await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
 
                 return Ok(new { success = true, message = $"Ngày lễ ID {id} đã bị từ chối bởi {rejecterName}." });
             }
@@ -207,113 +140,96 @@ namespace HR_KD.Controllers
         }
 
         [HttpPost("cancel/{id}")]
-        
         public async Task<IActionResult> Cancel(int id)
         {
-            try
+            await using var transaction = await _context.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable);
+            var holiday = await _context.NgayLes.FindAsync(id);
+            if (holiday == null)
+                return NotFound(new { success = false, message = "Không tìm thấy ngày lễ." });
+            if (holiday.TrangThai is TrangThai.NL1 or TrangThai.NL2 or TrangThai.NL3)
+                return Ok(new { success = true, message = "Ngày lễ đang chờ duyệt." });
+
+            if (holiday.TrangThai is TrangThai.NL4 or TrangThai.NL5)
             {
-                var holiday = await _context.NgayLes.FindAsync(id);
-                if (holiday == null)
-                {
-                    return NotFound(new { success = false, message = "Không tìm thấy ngày lễ." });
-                }
+                if (await HasPayroll(holiday.NgayLe1))
+                    return PayrollConflict();
 
-                if (holiday.TenNgayLe.Contains("Nghỉ bù"))
-                {
-                    holiday.TrangThai = TrangThai.NL3;
-                }
-                else
-                {
-                    var dayOfWeek = holiday.NgayLe1.ToDateTime(TimeOnly.MinValue).DayOfWeek;
-                    holiday.TrangThai = (dayOfWeek == DayOfWeek.Saturday || dayOfWeek == DayOfWeek.Sunday)
-                        ? TrangThai.NL2
-                        : TrangThai.NL1;
-                }
-
-                var relatedAttendances = await _context.ChamCongs
-                    .Where(cc => cc.NgayLamViec == holiday.NgayLe1)
+                var holidayNote = $"Ngày lễ: {holiday.TenNgayLe} - Được duyệt bởi: ";
+                var makeupNote = $"Ngày nghỉ bù: {holiday.TenNgayLe} - Được duyệt bởi: ";
+                // Both prefixes cover records generated by earlier single and bulk approvals.
+                var generated = await _context.ChamCongs
+                    .Where(x => x.NgayLamViec == holiday.NgayLe1 && x.TrangThai == "CC3"
+                        && x.MaNvDuyet == 0 && x.NgayDuyet == null && x.GhiChu != null
+                        && (x.GhiChu.StartsWith(holidayNote) || x.GhiChu.StartsWith(makeupNote)))
                     .ToListAsync();
-                _context.ChamCongs.RemoveRange(relatedAttendances);
-
-                await _context.SaveChangesAsync();
-
-                return Ok(new { success = true, message = $"Ngày lễ ID {id} đã được hủy và khôi phục về trạng thái ban đầu." });
+                _context.ChamCongs.RemoveRange(generated);
             }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { success = false, message = "Lỗi khi hủy ngày lễ.", error = ex.Message });
-            }
+
+            holiday.TrangThai = holiday.TenNgayLe.Contains("Nghỉ bù") ? TrangThai.NL3 :
+                holiday.NgayLe1.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday ? TrangThai.NL2 : TrangThai.NL1;
+            await _context.SaveChangesAsync();
+            await transaction.CommitAsync();
+            return Ok(new { success = true, message = "Đã đưa ngày lễ về trạng thái chờ duyệt." });
         }
 
         [HttpPost("approve/year/{year}")]
-        
         public async Task<IActionResult> ApproveAllByYear(int year)
         {
-            try
+            if (year is < 1 or > 9999)
+                return BadRequest(new { success = false, message = "Năm không hợp lệ." });
+
+            await using var transaction = await _context.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable);
+            var pending = await _context.NgayLes
+                .Where(x => x.NgayLe1.Year == year &&
+                    (x.TrangThai == TrangThai.NL1 || x.TrangThai == TrangThai.NL2 || x.TrangThai == TrangThai.NL3))
+                .ToListAsync();
+            var lockedMonths = await _context.BangLuongs.Where(x => x.ThangNam.Year == year)
+                .Select(x => x.ThangNam.Month).Distinct().ToListAsync();
+            if (pending.Any(x => lockedMonths.Contains(x.NgayLe1.Month)))
+                return PayrollConflict();
+
+            foreach (var holiday in pending)
+                await ApplyApproval(holiday);
+
+            await _context.SaveChangesAsync();
+            await transaction.CommitAsync();
+            return Ok(new { success = true, message = $"Đã duyệt {pending.Count} ngày lễ trong năm {year}." });
+        }
+
+        private Task<bool> HasPayroll(DateOnly day) =>
+            _context.BangLuongs.AnyAsync(x => x.ThangNam.Year == day.Year && x.ThangNam.Month == day.Month);
+
+        private ConflictObjectResult PayrollConflict() =>
+            Conflict(new { success = false, message = "Kỳ này đã có bảng lương. Đối soát bảng lương trước khi đổi ngày lễ." });
+
+        private async Task ApplyApproval(NgayLe holiday)
+        {
+            var approverName = User.FindFirst("TenNV")?.Value ?? User.Identity?.Name;
+            var approverId = User.FindFirst("MaNV")?.Value;
+            if (holiday.TrangThai is TrangThai.NL1 or TrangThai.NL3)
             {
-                var approverMaNV = User.Claims.FirstOrDefault(c => c.Type == "MaNV")?.Value;
-                var approverName = User.Claims.FirstOrDefault(c => c.Type == "TenNV")?.Value;
-
-                if (string.IsNullOrEmpty(approverMaNV))
+                var label = holiday.TrangThai == TrangThai.NL3 ? "Ngày nghỉ bù" : "Ngày lễ";
+                var employees = await _context.NhanViens.Where(x =>
+                    (x.NgayVaoLam == null || x.NgayVaoLam <= holiday.NgayLe1)
+                    && !_context.ChamCongs.Any(c => c.MaNv == x.MaNv && c.NgayLamViec == holiday.NgayLe1))
+                    .Select(x => x.MaNv).ToListAsync();
+                _context.ChamCongs.AddRange(employees.Select(employeeId => new ChamCong
                 {
-                    return BadRequest(new { success = false, message = "Không tìm thấy thông tin người duyệt." });
-                }
-
-                var holidaysToApprove = await _context.NgayLes
-                    .Where(h => h.NgayLe1.Year == year &&
-                               (h.TrangThai == TrangThai.NL1 ||
-                                h.TrangThai == TrangThai.NL2 ||
-                                h.TrangThai == TrangThai.NL3))
-                    .ToListAsync();
-
-                if (holidaysToApprove.Count == 0)
-                {
-                    return Ok(new { success = true, message = $"Không có ngày lễ nào trong năm {year} cần duyệt." });
-                }
-
-                foreach (var holiday in holidaysToApprove)
-                {
-                    if (holiday.TrangThai == TrangThai.NL1 || holiday.TrangThai == TrangThai.NL3)
-                    {
-                        holiday.TrangThai = TrangThai.NL4;
-                        var allEmployees = await _context.NhanViens.ToListAsync();
-                        foreach (var employee in allEmployees)
-                        {
-                            var existingAttendance = await _context.ChamCongs.FirstOrDefaultAsync(
-                                cc => cc.MaNv == employee.MaNv && cc.NgayLamViec == holiday.NgayLe1);
-                            if (existingAttendance == null)
-                            {
-                                var attendance = new ChamCong
-                                {
-                                    MaNv = employee.MaNv,
-                                    NgayLamViec = holiday.NgayLe1,
-                                    GioVao = new TimeOnly(8, 0, 0),
-                                    GioRa = new TimeOnly(18, 0, 0),
-                                    TongGio = 8.0m,
-                                    TrangThai = "CC3",
-                                    GhiChu = $"Ngày lễ: {holiday.TenNgayLe} - Được duyệt bởi: {approverName}"
-                                };
-                                _context.ChamCongs.Add(attendance);
-                            }
-                        }
-                    }
-                    else if (holiday.TrangThai == TrangThai.NL2)
-                    {
-                        holiday.TrangThai = TrangThai.NL5;
-                    }
-
-                    holiday.MoTa = $"{holiday.MoTa ?? ""}\nĐược duyệt bởi: {approverName} ({approverMaNV}) vào ngày {DateTime.Now:dd/MM/yyyy HH:mm}";
-                }
-                await _context.SaveChangesAsync();
-
-                
-
-                return Ok(new { success = true, message = $"{holidaysToApprove.Count} ngày lễ trong năm {year} đã được duyệt bởi {approverName} và thông báo đã được gửi." });
+                    MaNv = employeeId,
+                    NgayLamViec = holiday.NgayLe1,
+                    GioVao = new TimeOnly(8, 0),
+                    GioRa = new TimeOnly(18, 0),
+                    TongGio = 8.0m,
+                    TrangThai = "CC3",
+                    GhiChu = $"{label}: {holiday.TenNgayLe} - Được duyệt bởi: {approverName}"
+                }));
+                holiday.TrangThai = TrangThai.NL4;
             }
-            catch (Exception ex)
+            else
             {
-                return StatusCode(500, new { success = false, message = "Lỗi khi duyệt các ngày lễ.", error = ex.Message });
+                holiday.TrangThai = TrangThai.NL5;
             }
+            holiday.MoTa = $"{holiday.MoTa ?? ""}\nĐược duyệt bởi: {approverName} ({approverId}) vào ngày {DateTime.Now:dd/MM/yyyy HH:mm}";
         }
 
         [HttpGet("requests")]
@@ -348,13 +264,14 @@ namespace HR_KD.Controllers
                     return BadRequest(new { success = false, message = "Không tìm thấy thông tin người duyệt." });
                 }
 
+                await using var transaction = await _context.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable);
                 var request = await _context.YeuCaus.FindAsync(id);
-                if (request == null)
+                if (request == null || request.TenYeuCau != "Yêu cầu mở duyệt ngày lễ")
                 {
                     return NotFound(new { success = false, message = "Không tìm thấy yêu cầu." });
                 }
 
-                if (request.TrangThai)
+                if (request.TrangThai || request.NgayDuyet.HasValue)
                 {
                     return BadRequest(new { success = false, message = "Yêu cầu đã được xử lý trước đó." });
                 }
@@ -364,6 +281,7 @@ namespace HR_KD.Controllers
                 request.NgayDuyet = DateTime.Now;
 
                 await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
 
                 
 
@@ -389,22 +307,24 @@ namespace HR_KD.Controllers
                     return BadRequest(new { success = false, message = "Không tìm thấy thông tin người từ chối." });
                 }
 
+                await using var transaction = await _context.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable);
                 var request = await _context.YeuCaus.FindAsync(id);
-                if (request == null)
+                if (request == null || request.TenYeuCau != "Yêu cầu mở duyệt ngày lễ")
                 {
                     return NotFound(new { success = false, message = "Không tìm thấy yêu cầu." });
                 }
 
-                if (request.TrangThai)
+                if (request.TrangThai || request.NgayDuyet.HasValue)
                 {
                     return BadRequest(new { success = false, message = "Yêu cầu đã được xử lý trước đó." });
                 }
 
-                request.TrangThai = true;
+                request.TrangThai = false;
                 request.MaNvDuyet = rejecterMaNV;
                 request.NgayDuyet = DateTime.Now;
 
                 await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
 
                 
 
@@ -430,13 +350,14 @@ namespace HR_KD.Controllers
                     return BadRequest(new { success = false, message = "Không tìm thấy thông tin người hủy." });
                 }
 
+                await using var transaction = await _context.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable);
                 var request = await _context.YeuCaus.FindAsync(id);
-                if (request == null)
+                if (request == null || request.TenYeuCau != "Yêu cầu mở duyệt ngày lễ")
                 {
                     return NotFound(new { success = false, message = "Không tìm thấy yêu cầu." });
                 }
 
-                if (!request.TrangThai)
+                if (!request.TrangThai && !request.NgayDuyet.HasValue)
                 {
                     return BadRequest(new { success = false, message = "Yêu cầu chưa được xử lý, không thể hủy." });
                 }
@@ -446,6 +367,7 @@ namespace HR_KD.Controllers
                 request.NgayDuyet = null;
 
                 await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
 
                 
 

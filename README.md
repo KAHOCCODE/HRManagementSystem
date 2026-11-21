@@ -486,3 +486,11 @@ Use a fresh demo database when verifying this branch so the demo initializer can
 - Resident income tax uses the 2026 statutory brackets and deductions for 2026–2027. Part-year residency, tax exemptions for eligible overtime and night work, dependent eligibility by date and year-end settlement remain to be implemented.
 - Annual leave uses actual work anniversaries when calculating seniority. Rules for partial years, statutory job categories, anniversary updates during a year, carry-over and termination settlement still require implementation.
 - Before production, add verified company and worksite records, full record-level access controls and configuration audit history, payroll closing and adjustments, and durable encrypted storage with backup and restore. Validate against a de-identified payroll period with the company's HR and accounting team.
+
+### Worksites and transfers
+
+Sign in as director and open **Cài Đặt → Chi nhánh và nơi làm việc**. Add the head office and each branch separately. Select the Ho Chi Minh City ward, commune or special zone from the 168-area catalogue. The system applies the corresponding 2026 and 2027 schedules. Verify Tây Thạnh for 2026 before setting its pending region in the branch editor. Outside Ho Chi Minh City, enter the independently verified region for each year. Multi-region industrial zones and other special rules require separate review.
+
+Use **Gán nhân viên** to set a worksite and effective date. The most recent effective assignment applies. Use a new assignment when a worker transfers. Payroll stops for review when a transfer falls within a pay month or when the site has no verified region for that year. Individual employment periods spanning multiple worksites and hourly contracts still need their own payroll handling.
+
+The fresh demo includes two synthetic worksites. Existing SQLite demos add the new tables on startup. Before deploying against an existing SQL Server installation, back up the database and apply the `AddWorksites` migration after the preceding repository migrations. As elsewhere in this project, the SQL Server migration sequence assumes the original database schema.

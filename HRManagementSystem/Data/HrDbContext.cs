@@ -14,6 +14,9 @@ public partial class HrDbContext : DbContext
         : base(options)
     {
     }
+    public DbSet<Worksite> Worksites => Set<Worksite>();
+    public DbSet<WorksiteAssignment> WorksiteAssignments => Set<WorksiteAssignment>();
+
     public virtual DbSet<YeuCau> YeuCaus { get; set; } = null!;
     public virtual DbSet<NgayLeCoDinh> NgayLeCoDinhs { get; set; } = null!;
     public virtual DbSet<PhepNamNhanVien> PhepNamNhanViens { get; set; }
@@ -91,12 +94,18 @@ public partial class HrDbContext : DbContext
 
 
 
-    //    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-    //#warning To protect potentially sensitive information in your connection string, you should move it out of source code. You can avoid scaffolding the connection string by using the Name= syntax to read it from configuration - see https://go.microsoft.com/fwlink/?linkid=2131148. For more guidance on storing connection strings, see https://go.microsoft.com/fwlink/?LinkId=723263.
-    //        => optionsBuilder.UseSqlServer("Data Source=DESKTOP-3TRF427\\HOANGKA;Initial Catalog=QuanLyNhanSu;Integrated Security=True;Encrypt=True;Trust Server Certificate=True");
-
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        modelBuilder.Entity<Worksite>()
+            .HasIndex(x => x.Code).IsUnique();
+
+        modelBuilder.Entity<WorksiteAssignment>(entity =>
+        {
+            entity.HasIndex(x => new { x.EmployeeId, x.EffectiveFrom }).IsUnique();
+            entity.HasOne(x => x.Employee).WithMany().HasForeignKey(x => x.EmployeeId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(x => x.Worksite).WithMany().HasForeignKey(x => x.WorksiteId).OnDelete(DeleteBehavior.Restrict);
+        });
+
         modelBuilder.Entity<BangLuong>(entity =>
         {
             entity.HasKey(e => e.MaLuong).HasName("PK__BangLuon__6609A48DC1CE160C");

@@ -17,7 +17,7 @@ namespace HR_KD.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "9.0.3")
+                .HasAnnotation("ProductVersion", "10.0.15")
                 .HasAnnotation("Relational:MaxIdentifierLength", 128);
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
@@ -1532,6 +1532,80 @@ namespace HR_KD.Migrations
                     b.ToTable("TrangThais");
                 });
 
+            modelBuilder.Entity("HR_KD.Data.Worksite", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Address")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<string>("Province")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<int?>("Region2026")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("Region2027")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Ward")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Code")
+                        .IsUnique();
+
+                    b.ToTable("Worksites");
+                });
+
+            modelBuilder.Entity("HR_KD.Data.WorksiteAssignment", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateOnly>("EffectiveFrom")
+                        .HasColumnType("date");
+
+                    b.Property<int>("EmployeeId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("WorksiteId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("WorksiteId");
+
+                    b.HasIndex("EmployeeId", "EffectiveFrom")
+                        .IsUnique();
+
+                    b.ToTable("WorksiteAssignments");
+                });
+
             modelBuilder.Entity("HR_KD.Data.YeuCau", b =>
                 {
                     b.Property<int>("MaYeuCau")
@@ -1985,6 +2059,25 @@ namespace HR_KD.Migrations
                         .IsRequired();
 
                     b.Navigation("MaNvNavigation");
+                });
+
+            modelBuilder.Entity("HR_KD.Data.WorksiteAssignment", b =>
+                {
+                    b.HasOne("HR_KD.Data.NhanVien", "Employee")
+                        .WithMany()
+                        .HasForeignKey("EmployeeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("HR_KD.Data.Worksite", "Worksite")
+                        .WithMany()
+                        .HasForeignKey("WorksiteId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Employee");
+
+                    b.Navigation("Worksite");
                 });
 
             modelBuilder.Entity("HR_KD.Data.YeuCauSuaChamCong", b =>

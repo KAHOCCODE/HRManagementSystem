@@ -1,0 +1,61 @@
+@model IReadOnlyList<HR_KD.Data.Worksite>
+@using HR_KD.Services
+@using System.Globalization
+@{
+    Layout = "~/Views/Shared/_ThemeLayout.cshtml";
+    ViewData["Title"] = "Chi nhánh và nơi làm việc";
+    var vietnam = CultureInfo.GetCultureInfo("vi-VN");
+
+    string WageLabel(int year, int? region)
+    {
+        if (!region.HasValue)
+            return "Cần xác minh";
+
+        var wage = StatutoryPayroll.MinimumWage(new DateOnly(year, 1, 1), region.Value);
+        return wage.HasValue
+            ? $"Vùng {region} · {wage.Value.Month.ToString("N0", vietnam)} đ/tháng · {wage.Value.Hour.ToString("N0", vietnam)} đ/giờ"
+            : "Cần xác minh";
+    }
+}
+<div class="container-fluid">
+    <h1>Chi nhánh và nơi làm việc</h1>
+    <p><a asp-controller="PayrollSetting" asp-action="StatutoryRates">Xem văn bản và mức lương tối thiểu từng năm</a></p>
+    <div class="mb-3">
+        <a class="btn btn-primary" asp-action="Create">Thêm chi nhánh</a>
+        <a class="btn btn-outline-primary" asp-action="Assign">Gán nhân viên</a>
+    </div>
+    @if (Model.Count == 0)
+    {
+        <p>Chưa có chi nhánh. Bạn có thể thêm trụ sở và từng nơi làm việc của công ty tại đây.</p>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th scope="col">Mã</th>
+                        <th scope="col">Chi nhánh</th>
+                        <th scope="col">Địa chỉ</th>
+                        <th scope="col">Vùng 2026</th>
+                        <th scope="col">Vùng 2027</th>
+                        <th scope="col">Thao tác</th>
+                    </tr>
+                </thead>
+                <tbody>
+                @foreach (var site in Model)
+                {
+                    <tr>
+                        <td>@site.Code</td>
+                        <td>@site.Name</td>
+                        <td>@site.Address, @site.Ward, @site.Province</td>
+                        <td>@WageLabel(2026, site.Region2026)</td>
+                        <td>@WageLabel(2027, site.Region2027)</td>
+                        <td><a asp-action="Edit" asp-route-id="@site.Id">Chỉnh thông tin</a></td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>

@@ -14,13 +14,24 @@ internal static class DemoData
             throw new InvalidOperationException("Demo:Password must be at least 16 characters and at most 48 UTF-8 bytes.");
         }
 
-        await db.Database.EnsureCreatedAsync();
+        if (!await db.Database.EnsureCreatedAsync())
+            await AddWorksiteTablesToExistingDemoAsync(db);
         if (await db.TaiKhoans.AnyAsync())
         {
             return;
         }
 
         var today = DateOnly.FromDateTime(DateTime.Today);
+        var headquarters = new Worksite
+        {
+            Code = "HCM-SAIGON", Name = "Văn phòng mẫu Sài Gòn",
+            Ward = "Phường Sài Gòn", Address = "Địa chỉ giả lập", Region2026 = 1, Region2027 = 1
+        };
+        var canGio = new Worksite
+        {
+            Code = "HCM-CANGIO", Name = "Chi nhánh mẫu Cần Giờ",
+            Ward = "Xã Cần Giờ", Address = "Địa chỉ giả lập", Region2026 = 2, Region2027 = 1
+        };
         var department = new PhongBan { TenPhongBan = "Vận hành", MoTa = "Phòng ban minh họa" };
         var leaveType = new LoaiNgayNghi
         {
@@ -47,6 +58,12 @@ internal static class DemoData
                 MaPhongBanNavigation = department,
                 MaChucVuNavigation = new ChucVu { TenChucVu = sample.Title }
             };
+            db.WorksiteAssignments.Add(new WorksiteAssignment
+            {
+                Employee = employee,
+                Worksite = sample.Role == "EMPLOYEE" ? canGio : headquarters,
+                EffectiveFrom = new DateOnly(2026, 1, 1)
+            });
             var salt = Convert.ToHexString(RandomNumberGenerator.GetBytes(12));
             var account = new TaiKhoan
             {
@@ -129,5 +146,35 @@ internal static class DemoData
             new TrangThai { MaTrangThai = LeaveStatus.Approved, TenTrangThai = "Đã duyệt" },
             new TrangThai { MaTrangThai = LeaveStatus.Rejected, TenTrangThai = "Đã từ chối" });
         await db.SaveChangesAsync();
+    }
+    private static async Task AddWorksiteTablesToExistingDemoAsync(HrDbContext db)
+    {
+        // Demo databases are created with EnsureCreated and have no EF migration history.
+        // Add only the new tables so a local SQLite demo keeps its existing records.
+        await using var transaction = await db.Database.BeginTransactionAsync();
+        await db.Database.ExecuteSqlRawAsync("""
+            CREATE TABLE IF NOT EXISTS Worksites (
+                Id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                Code TEXT NOT NULL,
+                Name TEXT NOT NULL,
+                Province TEXT NOT NULL,
+                Ward TEXT NOT NULL,
+                Address TEXT NOT NULL,
+                Region2026 INTEGER NULL,
+                Region2027 INTEGER NULL
+            );
+            CREATE UNIQUE INDEX IF NOT EXISTS IX_Worksites_Code ON Worksites (Code);
+
+            CREATE TABLE IF NOT EXISTS WorksiteAssignments (
+                Id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                EmployeeId INTEGER NOT NULL REFERENCES NhanVien (MaNV) ON DELETE RESTRICT,
+                WorksiteId INTEGER NOT NULL REFERENCES Worksites (Id) ON DELETE RESTRICT,
+                EffectiveFrom TEXT NOT NULL
+            );
+            CREATE UNIQUE INDEX IF NOT EXISTS IX_WorksiteAssignments_EmployeeId_EffectiveFrom
+                ON WorksiteAssignments (EmployeeId, EffectiveFrom);
+            CREATE INDEX IF NOT EXISTS IX_WorksiteAssignments_WorksiteId ON WorksiteAssignments (WorksiteId);
+            """);
+        await transaction.CommitAsync();
     }
 }

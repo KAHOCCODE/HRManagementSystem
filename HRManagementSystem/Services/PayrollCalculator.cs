@@ -68,6 +68,18 @@ public class PayrollCalculator
                 && x.NgayApDung >= monthYear.AddDays(1) && x.NgayApDung < monthYear.AddMonths(1)))
             throw new InvalidOperationException("Có thay đổi lương giữa tháng. Cần phân đoạn kỳ lương trước khi tính.");
 
+        var worksiteHistory = _context.WorksiteAssignments.Where(x => x.EmployeeId == employeeId);
+        if (await worksiteHistory.AnyAsync(x => x.EffectiveFrom > startOfMonth && x.EffectiveFrom <= endOfMonth))
+            throw new InvalidOperationException("Nhân viên đổi chi nhánh trong tháng. Cần phân đoạn kỳ lương để đối soát.");
+        if (await worksiteHistory.AnyAsync(x => x.EffectiveFrom <= startOfMonth))
+        {
+            var minimumWage = await ResolveMonthlyMinimumWage(employeeId, monthYear);
+            if (!minimumWage.HasValue)
+                throw new InvalidOperationException("Chưa xác định vùng lương của chi nhánh cho kỳ này.");
+            if (salaryInfo.LuongCoBan < minimumWage)
+                throw new InvalidOperationException("Lương cơ bản thấp hơn mức tối thiểu tháng ở chi nhánh. Kiểm tra lại hợp đồng và hình thức trả lương.");
+        }
+
         decimal tiLeLuong = (decimal)(contract.LoaiHopDong.TiLeLuong ?? 1.0);
 
         var standardHoursRecord = await _context.GioChuans
@@ -248,6 +260,27 @@ public class PayrollCalculator
 
     public async Task<decimal?> ResolveMonthlyMinimumWage(int employeeId, DateTime effectiveDate)
     {
+        var date = DateOnly.FromDateTime(effectiveDate);
+        var assignments = _context.WorksiteAssignments.Where(x => x.EmployeeId == employeeId);
+        var worksite = await assignments.Where(x => x.EffectiveFrom <= date)
+            .OrderByDescending(x => x.EffectiveFrom).Select(x => x.Worksite).FirstOrDefaultAsync();
+        if (worksite != null)
+        {
+            var regionAtWorksite = date.Year switch
+            {
+                2026 => worksite.Region2026,
+                2027 => worksite.Region2027,
+                _ => null
+            };
+
+            return regionAtWorksite.HasValue
+                ? StatutoryPayroll.MinimumWage(date, regionAtWorksite.Value)?.Month
+                : null;
+        }
+
+        if (await assignments.AnyAsync())
+            return null;
+
         var department = await _context.NhanViens.Where(x => x.MaNv == employeeId)
             .Select(x => (int?)x.MaPhongBan).SingleOrDefaultAsync();
         if (department == null)

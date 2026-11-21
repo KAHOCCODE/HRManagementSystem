@@ -26,17 +26,27 @@
             }
             else
             {
-                <div class="form-group organization-search">
-                    <label for="organization-search">Tìm người, phòng ban hoặc nơi làm việc</label>
-                    <input id="organization-search" class="form-control" type="search">
+                <div class="organization-toolbar">
+                    <div class="form-group organization-search mb-0">
+                        <label for="organization-search">Tìm người, phòng ban hoặc nơi làm việc</label>
+                        <input id="organization-search" class="form-control" type="search">
+                    </div>
+                    <div class="btn-group" role="group" aria-label="Điều chỉnh sơ đồ">
+                        <button id="organization-zoom-out" class="btn btn-outline-primary btn-sm" type="button" aria-label="Thu nhỏ"><i class="fa fa-minus" aria-hidden="true"></i></button>
+                        <output id="organization-zoom" class="organization-scale">100%</output>
+                        <button id="organization-zoom-in" class="btn btn-outline-primary btn-sm" type="button" aria-label="Phóng to"><i class="fa fa-plus" aria-hidden="true"></i></button>
+                        <button id="organization-fit" class="btn btn-outline-primary btn-sm" type="button">Vừa khung</button>
+                    </div>
                 </div>
-                <p id="organization-empty" class="text-muted" hidden role="status">Không tìm thấy nhân viên phù hợp.</p>
-                <ul id="organization-tree" class="organization-forest">
-                    @foreach (var root in Model.Roots)
-                    {
-                        <partial name="_OrganizationMember" model="root" />
-                    }
-                </ul>
+                <p id="organization-empty" class="text-muted mt-3" hidden role="status">Không tìm thấy nhân viên phù hợp.</p>
+                <div id="organization-viewport" class="organization-viewport" tabindex="0" role="region" aria-label="Sơ đồ phân cấp nhân viên">
+                    <ul id="organization-tree" class="organization-forest" aria-label="Cấp quản lý cao nhất">
+                        @foreach (var root in Model.Roots)
+                        {
+                            <partial name="_OrganizationMember" model="root" />
+                        }
+                    </ul>
+                </div>
             }
         </div>
     </section>

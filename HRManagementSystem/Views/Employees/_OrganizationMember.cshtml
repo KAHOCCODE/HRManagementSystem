@@ -20,14 +20,15 @@
     </div>
     @if (Model.Reports.Count > 0)
     {
-        <details class="organization-branch" open>
-            <summary>@Model.Reports.Count nhân viên cấp dưới trực tiếp</summary>
-            <ul class="organization-children">
-                @foreach (var report in Model.Reports)
-                {
-                    <partial name="_OrganizationMember" model="report" />
-                }
-            </ul>
-        </details>
+        <button class="organization-toggle" type="button" aria-expanded="true" aria-controls="organization-reports-@Model.Id" aria-label="Nhân viên dưới quyền @Model.Name">
+            <i class="fa fa-chevron-down" aria-hidden="true"></i>
+            <span>@Model.Reports.Count cấp dưới</span>
+        </button>
+        <ul id="organization-reports-@Model.Id" class="organization-children">
+            @foreach (var report in Model.Reports)
+            {
+                <partial name="_OrganizationMember" model="report" />
+            }
+        </ul>
     }
 </li>

@@ -1,4 +1,5 @@
 ﻿using HR_KD.Data;
+using HR_KD.Authorization;
 using HR_KD.DTOs;
 using HR_KD.Common;
 using Microsoft.AspNetCore.Authorization;
@@ -190,7 +191,7 @@ namespace HR_KD.ApiControllers
         [HttpGet("GetPayrollDetail/{maLuong}")]
         public async Task<IActionResult> GetPayrollDetail(int maLuong)
         {
-            var payroll = await _context.BangLuongs
+            var payroll = await PayrollAccess.VisiblePayrolls(_context, User)
                 .Include(p => p.MaNvNavigation)
                     .ThenInclude(nv => nv.MaPhongBanNavigation)
                 .Include(p => p.MaNvNavigation.MaChucVuNavigation)
@@ -200,17 +201,6 @@ namespace HR_KD.ApiControllers
                 return NotFound("Không tìm thấy bảng lương.");
 
             var nv = payroll.MaNvNavigation;
-            var currentEmployeeId = int.TryParse(User.FindFirst("MaNV")?.Value, out var id) ? id : 0;
-            if (!User.IsInRole("DIRECTOR") && !User.IsInRole("PAYROLL_AUDITOR"))
-            {
-                var isOwnPublishedPayroll = currentEmployeeId == nv.MaNv && payroll.TrangThai == PayrollStatus.SentToEmployee;
-                var isDepartmentManager = (User.IsInRole("LINE_MANAGER") || User.IsInRole("EMPLOYEE_MANAGER"))
-                    && await _context.NhanViens.AnyAsync(x => x.MaNv == currentEmployeeId
-                        && x.MaPhongBan == nv.MaPhongBan && x.MaChucVu < nv.MaChucVu);
-                if (!isOwnPublishedPayroll && !isDepartmentManager)
-                    return Forbid();
-            }
-
             var payrollMonth = new DateTime(payroll.ThangNam.Year, payroll.ThangNam.Month, 1);
             var thongTinLuong = await _context.ThongTinLuongNVs
                 .Where(x => x.MaNv == nv.MaNv && x.NgayApDung < payrollMonth.AddDays(1))
@@ -269,7 +259,7 @@ namespace HR_KD.ApiControllers
                 // F. GHI CHÚ
                 payroll.GhiChu,
                 payroll.TrangThai,
-                TenTrangThai = _statusNameMapping.TryGetValue(payroll.TrangThai, out var name) ? name : payroll.TrangThai,
+                TenTrangThai = _statusNameMapping.TryGetValue(payroll.TrangThai ?? "", out var name) ? name : payroll.TrangThai,
                 NgayIn = DateTime.Now
             });
         }

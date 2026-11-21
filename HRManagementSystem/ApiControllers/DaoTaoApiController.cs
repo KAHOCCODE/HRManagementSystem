@@ -211,7 +211,7 @@ namespace HR_KD.Controllers
             var maNvClaim = User.Claims.FirstOrDefault(c => c.Type == "MaNV")?.Value;
             if (string.IsNullOrEmpty(maNvClaim) || !int.TryParse(maNvClaim, out int maNv))
             {
-                return Forbid("Không tìm thấy mã nhân viên trong thông tin đăng nhập.");
+                return Forbid();
             }
 
             var nhanVien = await _context.NhanViens
@@ -305,7 +305,7 @@ namespace HR_KD.Controllers
             var maNvClaim = User.Claims.FirstOrDefault(c => c.Type == "MaNV")?.Value;
             if (string.IsNullOrEmpty(maNvClaim) || !int.TryParse(maNvClaim, out int maNv))
             {
-                return Forbid("Không tìm thấy mã nhân viên trong thông tin đăng nhập.");
+                return Forbid();
             }
 
             var nhanVien = await _context.NhanViens
@@ -318,7 +318,7 @@ namespace HR_KD.Controllers
 
             if (lichSu.MaNv != maNv)
             {
-                return Forbid("Bạn không có quyền hoàn thành khóa học này.");
+                return Forbid();
             }
 
             lichSu.KetQua = "Hoàn Thành";

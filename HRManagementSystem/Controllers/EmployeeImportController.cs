@@ -14,18 +14,18 @@ namespace HR_KD.Controllers
         private readonly HrDbContext _context;
         private readonly ExcelTemplateService _excelService;
         private readonly UsernameGeneratorService _usernameGen;
-        private readonly EmailService _emailService;
+        private readonly AccountActivationService _activation;
         private readonly ILogger<EmployeeImportController> _logger;
 
         public EmployeeImportController(
             HrDbContext context,
             ExcelTemplateService excelService,
-            UsernameGeneratorService usernameGen, EmailService emailService, ILogger<EmployeeImportController> logger)
+            UsernameGeneratorService usernameGen, AccountActivationService activation, ILogger<EmployeeImportController> logger)
         {
             _context = context;
             _excelService = excelService;
             _usernameGen = usernameGen;
-            _emailService = emailService;
+            _activation = activation;
             _logger = logger;
         }
 
@@ -145,8 +145,7 @@ namespace HR_KD.Controllers
                     savedCount++;
                     try
                     {
-                        _emailService.SendEmail(dto.Email, "Kích hoạt tài khoản nhân sự",
-                            $"Tài khoản: {System.Net.WebUtility.HtmlEncode(username)}<br>Mật khẩu tạm: {pass}<br>Chọn Đặt mật khẩu lần đầu trên trang đăng nhập trong vòng 24 giờ.");
+                        _activation.Send(dto.Email, username, pass, hash);
                     }
                     catch (Exception ex)
                     {

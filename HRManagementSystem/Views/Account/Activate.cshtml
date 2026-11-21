@@ -1,14 +1,12 @@
+@model string
 @{
-    ViewData["Title"] = "Đặt mật khẩu lần đầu";
+    ViewData["Title"] = "Đặt mật khẩu";
 }
-<h1>Đặt mật khẩu lần đầu</h1>
+<h1>Đặt mật khẩu</h1>
 <p>Dùng mật khẩu tạm trong thư kích hoạt. Mật khẩu tạm hết hạn sau 24 giờ.</p>
 <form asp-action="Activate" method="post">
     <div asp-validation-summary="All" class="text-danger" role="alert"></div>
-    <div class="form-group">
-        <label for="username">Tên đăng nhập</label>
-        <input class="form-control" id="username" name="username" autocomplete="username" required />
-    </div>
+    <input type="hidden" name="ticket" value="@Model" />
     <div class="form-group">
         <label for="temporaryPassword">Mật khẩu tạm</label>
         <input class="form-control" type="password" id="temporaryPassword" name="temporaryPassword" autocomplete="current-password" required />

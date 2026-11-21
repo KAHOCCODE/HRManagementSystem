@@ -14,6 +14,7 @@ namespace HR_KD.Controllers
         }
 
         #region view bảng lương theo phòng ban / trạng thái chung
+        [Authorize(Roles = "DIRECTOR,PAYROLL_AUDITOR")]
         public IActionResult Index()
         {
             return View();

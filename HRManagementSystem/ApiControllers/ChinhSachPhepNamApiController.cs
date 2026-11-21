@@ -106,6 +106,7 @@ namespace HR_KD.Api
         }
 
         // PUT: api/ChinhSachPhepNam/5
+        [Authorize(Roles = "DIRECTOR")]
         [HttpPut("{id}")]
         public async Task<IActionResult> PutChinhSachPhepNam(int id, ChinhSachPhepNamViewModel viewModel)
         {
@@ -146,6 +147,7 @@ namespace HR_KD.Api
         }
 
         // POST: api/ChinhSachPhepNam
+        [Authorize(Roles = "DIRECTOR")]
         [HttpPost]
         public async Task<ActionResult<ChinhSachPhepNamViewModel>> PostChinhSachPhepNam(ChinhSachPhepNamViewModel viewModel)
         {
@@ -172,6 +174,7 @@ namespace HR_KD.Api
         }
 
         // DELETE: api/ChinhSachPhepNam/5
+        [Authorize(Roles = "DIRECTOR")]
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteChinhSachPhepNam(int id)
         {

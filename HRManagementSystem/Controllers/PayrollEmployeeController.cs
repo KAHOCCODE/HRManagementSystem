@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace HR_KD.Controllers
 {
-    [Authorize(Roles = "EMPLOYEE")] // Only users with the "Employee" role can access this controller
+    [Authorize]
     public class PayrollEmployeeController : Controller
     {
         // Dependency Injection (DbContext, etc.) might be needed here if your View requires server-side data before the client-side JS loads,

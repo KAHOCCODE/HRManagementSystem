@@ -17,14 +17,14 @@ namespace HR_KD.ApiControllers
     public class EmployeesApiController : ControllerBase
     {
         private readonly HrDbContext _context;
-        private readonly EmailService _emailService;
+        private readonly AccountActivationService _activation;
         private readonly UsernameGeneratorService _usernameGen;
         private readonly ILogger<EmployeesApiController> _logger;
 
-        public EmployeesApiController(HrDbContext context, EmailService emailService, ILogger<EmployeesApiController> logger)
+        public EmployeesApiController(HrDbContext context, AccountActivationService activation, ILogger<EmployeesApiController> logger)
         {
             _context = context;
-            _emailService = emailService;
+            _activation = activation;
             _logger = logger;
             _usernameGen = new UsernameGeneratorService();
         }
@@ -600,61 +600,7 @@ namespace HR_KD.ApiControllers
 
                 try
                 {
-                    string subject = "Thông tin tài khoản nhân viên";
-                    string body = $@"
-    <table width='100%' cellpadding='0' cellspacing='0' style='font-family:Segoe UI, sans-serif; background: #f4f4f4; padding: 30px;'>
-        <tr>
-            <td align='center'>
-                <table width='600' cellpadding='0' cellspacing='0' style='background-color: #ffffff; border-radius: 10px; overflow: hidden; box-shadow: 0 0 10px rgba(0,0,0,0.05);'>
-                    <tr>
-                        <td style='background-color: #004080; padding: 20px 0; text-align: center;'>
-                            <img src='' alt='Company Logo' height='50' />
-                        </td>
-                    </tr>
-                    <tr>
-                        <td style='padding: 30px;'>
-                            <h2 style='color: #004080;'>Chào {System.Net.WebUtility.HtmlEncode(employeeDto.HoTen)},</h2>
-                            <p>Chúc mừng bạn đã trở thành một phần của công ty 🎉.</p>
-                            <p>Dưới đây là thông tin tài khoản để bạn có thể đăng nhập vào hệ thống:</p>
-
-                            <table cellpadding='8' cellspacing='0' width='100%' style='margin-top: 20px; border: 1px solid #ddd; border-radius: 8px; overflow: hidden;'>
-                                <tr style='background-color: #f0f0f0;'>
-                                    <th align='left'>Tài khoản</th>
-                                    <th align='left'>Mật khẩu tạm thời</th>
-                                </tr>
-                                <tr>
-                                    <td>{taiKhoan.Username}</td>
-                                    <td>{temporaryPassword}</td>
-                                </tr>
-                            </table>
-
-                            <p style='margin-top: 20px; color: #888;'>
-                                * Chọn Đặt mật khẩu lần đầu trên trang đăng nhập trong vòng 24 giờ.
-                            </p>
-
-                            <div style='text-align:center; margin: 30px 0;'>
-                                <a href='' 
-                                    style='display:inline-block; background-color:#004080; color:white; padding:12px 20px; text-decoration:none; border-radius:5px; font-weight:bold;'>
-                                    Đăng nhập ngay
-                                </a>
-                            </div>
-
-                            <p style='font-size: 13px; color: #999; text-align: center;'>
-                                Nếu bạn có bất kỳ câu hỏi nào, hãy liên hệ với bộ phận IT để được hỗ trợ.
-                            </p>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td style='background-color: #eeeeee; padding: 15px; text-align: center; font-size: 12px; color: #777;'>
-                            © 2025 Công ty ABC | <a href='https://yourcompanydomain.com' style='color:#004080;'>Trang chủ</a>
-                        </td>
-                    </tr>
-                </table>
-            </td>
-        </tr>
-    </table>";
-
-                    _emailService.SendEmail(employeeDto.Email, subject, body);
+                    _activation.Send(employeeDto.Email, taiKhoan.Username, temporaryPassword, taiKhoan.PasswordHash);
                 }
                 catch (Exception ex)
                 {

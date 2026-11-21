@@ -1,9 +1,9 @@
 @{
     Layout = "~/Views/Shared/_ThemeLayout.cshtml";
-    ViewData["Title"] = "Cấp lại mật khẩu tạm";
+    ViewData["Title"] = "Cấp lại mật khẩu";
 }
-<h1>Cấp lại mật khẩu tạm</h1>
-<p>Hệ thống gửi mật khẩu tạm đến email trong hồ sơ nhân viên và thu hồi các phiên đăng nhập cũ.</p>
+<h1>Cấp lại mật khẩu</h1>
+<p>Liên kết đặt mật khẩu và mật khẩu tạm được gửi đến email trong hồ sơ nhân viên. Sau khi gửi, các phiên đăng nhập cũ sẽ hết hiệu lực.</p>
 @if (TempData["Success"] is string success)
 {
     <div class="alert alert-success" role="status">@success</div>
@@ -14,5 +14,5 @@
         <label for="username">Tên đăng nhập của nhân viên</label>
         <input class="form-control" id="username" name="username" required />
     </div>
-    <button class="btn btn-primary" type="submit">Gửi mật khẩu tạm</button>
+    <button class="btn btn-primary" type="submit">Gửi liên kết đặt mật khẩu</button>
 </form>

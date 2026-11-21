@@ -10,7 +10,7 @@ namespace HR_KD.Controllers
         }
         public IActionResult Director()
         {
-            return View();
+            return View("DIRECTOR");
         }
         public IActionResult Manager()
         {

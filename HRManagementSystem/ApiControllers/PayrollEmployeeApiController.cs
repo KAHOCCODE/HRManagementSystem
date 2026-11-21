@@ -1,4 +1,5 @@
 ﻿using HR_KD.Data;
+using HR_KD.Authorization;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -11,7 +12,7 @@ namespace HR_KD.ApiControllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize(Roles = "EMPLOYEE")]
+    [Authorize]
     public class PayrollEmployeeApiController : ControllerBase
     {
         private readonly HrDbContext _context;
@@ -63,7 +64,7 @@ namespace HR_KD.ApiControllers
                                                 p.TongLuong,
                                                 p.ThucNhan,
                                                 p.TrangThai,
-                                                TenTrangThai = _statusNameMapping.TryGetValue(p.TrangThai, out var name) ? name : p.TrangThai,
+                                                TenTrangThai = _statusNameMapping.TryGetValue(p.TrangThai ?? "", out var name) ? name : p.TrangThai,
                                                 p.LuongTangCa,
                                                 p.LuongThem,
                                                 p.PhuCapThem,
@@ -90,7 +91,7 @@ namespace HR_KD.ApiControllers
             // Verify if the payroll belongs to the current employee
             if (payroll.MaNv != user.MaNv)
             {
-                return Forbid("Bạn không có quyền xác nhận bảng lương này."); // Use Forbid for authorization issues
+                return Forbid(); // Use Forbid for authorization issues
             }
 
             if (payroll.TrangThai != "BL1")
@@ -120,7 +121,7 @@ namespace HR_KD.ApiControllers
             // Verify if the payroll belongs to the current employee
             if (payroll.MaNv != user.MaNv)
             {
-                return Forbid("Bạn không có quyền từ chối bảng lương này."); // Use Forbid for authorization issues
+                return Forbid(); // Use Forbid for authorization issues
             }
 
 
@@ -141,6 +142,9 @@ namespace HR_KD.ApiControllers
         [HttpGet("CreatePayrollDetailReport/{maLuong}")]
         public async Task<IActionResult> CreatePayrollDetailReport(int maLuong)
         {
+            if (!await PayrollAccess.VisiblePayrolls(_context, User).AnyAsync(x => x.MaLuong == maLuong))
+                return NotFound("Không tìm thấy bảng lương trong phạm vi truy cập.");
+
             try
             {
                 byte[] pdfBytes = await _payrollReportService.GeneratePayrollPdf(maLuong);

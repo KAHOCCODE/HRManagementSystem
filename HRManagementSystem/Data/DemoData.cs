@@ -30,15 +30,15 @@ internal static class DemoData
 
         var headquarters = new Worksite
         {
-            Code = "HCM-SAIGON", Name = "Văn phòng mẫu Sài Gòn",
-            Ward = "Phường Sài Gòn", Address = "Địa chỉ giả lập", Region2026 = 1, Region2027 = 1
+            Code = "HCM-SAIGON", Name = "Văn phòng Sài Gòn",
+            Ward = "Phường Sài Gòn", Address = "Đường Nguyễn Huệ", Region2026 = 1, Region2027 = 1
         };
         var canGio = new Worksite
         {
-            Code = "HCM-CANGIO", Name = "Chi nhánh mẫu Cần Giờ",
-            Ward = "Xã Cần Giờ", Address = "Địa chỉ giả lập", Region2026 = 2, Region2027 = 1
+            Code = "HCM-CANGIO", Name = "Chi nhánh Cần Giờ",
+            Ward = "Xã Cần Giờ", Address = "Đường Rừng Sác", Region2026 = 2, Region2027 = 1
         };
-        var department = new PhongBan { TenPhongBan = "Vận hành", MoTa = "Phòng ban minh họa" };
+        var department = new PhongBan { TenPhongBan = "Vận hành", MoTa = "Vận hành nội bộ" };
         var leaveType = new LoaiNgayNghi
         {
             TenLoai = "Nghỉ phép năm",
@@ -103,7 +103,7 @@ internal static class DemoData
                 {
                     MaQuyenHan = sample.Role,
                     TenQuyenHan = sample.Title,
-                    MoTaQuyenHan = "Vai trò minh họa"
+                    MoTaQuyenHan = "Quyền theo chức danh"
                 }
             });
             db.TaiKhoans.Add(account);
@@ -111,14 +111,14 @@ internal static class DemoData
             db.HopDongLaoDongs.Add(new HopDongLaoDong
             {
                 NhanVien = employee, LoaiHopDong = signedContracts, NgayBatDau = StartOfYear,
-                GhiChu = "Hợp đồng minh họa"
+                GhiChu = "Hợp đồng lao động"
             });
 
             var salary = new ThongTinLuongNV
             {
                 NhanVien = employee, LuongCoBan = sample.MonthlyPay, NgayApDung = StartOfYear.ToDateTime(TimeOnly.MinValue),
                 BHXH = sample.MonthlyPay * .08m, BHYT = sample.MonthlyPay * .015m, BHTN = sample.MonthlyPay * .01m,
-                IsActive = true, GhiChu = "Mức lương giả lập"
+                IsActive = true, GhiChu = "Lương theo hợp đồng"
             };
             db.ThongTinLuongNVs.Add(salary);
             var attendance = new List<ChamCong>();
@@ -214,9 +214,9 @@ internal static class DemoData
 
         db.TangCas.AddRange(
             new TangCa { MaNv = sampleEmployee.MaNv, NgayTangCa = new(2026, 10, 16), SoGioTangCa = 2, TyLeTangCa = 1.5m,
-                GioVao = ShiftEnd, GioRa = new(19, 0), TrangThai = OvertimeStatus.Approved, MaNvDuyet = director.MaNv, GhiChu = "Tăng ca mẫu đã duyệt" },
+                GioVao = ShiftEnd, GioRa = new(19, 0), TrangThai = OvertimeStatus.Approved, MaNvDuyet = director.MaNv, GhiChu = "Hỗ trợ vận hành cuối ngày" },
             new TangCa { MaNv = sampleEmployee.MaNv, NgayTangCa = new(2026, 11, 19), SoGioTangCa = 1, TyLeTangCa = 1.5m,
-                GioVao = ShiftEnd, GioRa = new(18, 0), TrangThai = OvertimeStatus.Pending, GhiChu = "Tăng ca mẫu chờ duyệt" });
+                GioVao = ShiftEnd, GioRa = new(18, 0), TrangThai = OvertimeStatus.Pending, GhiChu = "Bàn giao cuối ca" });
         await db.SaveChangesAsync();
 
         for (var month = StartOfYear; month.Month < DataThrough.Month; month = month.AddMonths(1))
@@ -228,7 +228,7 @@ internal static class DemoData
                     account.Attendance.Where(entry => entry.NgayLamViec.Month == month.Month).ToList(), account.Salary);
                 pay.NgayTao = month.AddMonths(1).ToDateTime(new TimeOnly(9, 0));
                 pay.NguoiTao = "demo.payroll";
-                pay.GhiChu = "Bảng lương giả lập";
+
                 pay.TrangThai = month.Month == 10 ? account.Username switch
                 {
                     "demo.hr" => PayrollStatus.SentToAccounting,
@@ -254,7 +254,7 @@ internal static class DemoData
         {
             MaNvNavigation = employee, MaLoaiNgayNghiNavigation = leaveType, NgayNghi1 = date,
             NgayLamDon = submitted, NgayDuyet = submitted, NguoiDuyetId = status == LeaveStatus.Approved ? director.MaNv : null,
-            MaTrangThai = status, MaDon = code, LyDo = "Đơn nghỉ phép minh họa"
+            MaTrangThai = status, MaDon = code, LyDo = "Nghỉ phép cá nhân"
         });
     }
 
@@ -294,14 +294,14 @@ internal static class DemoData
         db.GiamTruGiaCanhs.Add(new GiamTruGiaCanh
         {
             MucGiamTruBanThan = 15500000, MucGiamTruNguoiPhuThuoc = 6200000, NgayHieuLuc = effective,
-            GhiChu = "Thông số minh họa kỳ tính thuế 2026"
+            GhiChu = "Thông số kỳ tính thuế 2026"
         });
         foreach (var item in new (decimal From, decimal? To, decimal Rate)[]
             { (0, 10000000, 5), (10000000, 30000000, 10), (30000000, 60000000, 20), (60000000, 100000000, 30), (100000000, null, 35) })
         {
             db.CauHinhLuongThues.Add(new CauHinhLuongThue
             {
-                MucLuongTu = item.From, MucLuongDen = item.To, GiaTri = item.Rate, MoTa = "Biểu mẫu năm 2026"
+                MucLuongTu = item.From, MucLuongDen = item.To, GiaTri = item.Rate, MoTa = "Biểu thuế năm 2026"
             });
         }
 
@@ -309,7 +309,7 @@ internal static class DemoData
             db.ThongTinBaoHiems.Add(new ThongTinBaoHiem
             {
                 LoaiBaoHiem = item.Item1, TyLeNguoiLaoDong = item.Item2, TyLeNhaTuyenDung = item.Item3,
-                NgayHieuLuc = effective, GhiChu = "Tỷ lệ minh họa điển hình cho dữ liệu demo"
+                NgayHieuLuc = effective, GhiChu = "Tỷ lệ đóng bảo hiểm"
             });
     }
 

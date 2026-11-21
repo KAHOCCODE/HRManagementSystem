@@ -85,6 +85,12 @@ namespace HR_KD.ApiControllers
                 return BadRequest(new { success = false, message = "Dữ liệu nghỉ phép không hợp lệ." });
             }
 
+            if (leaveRequests.Any(request => request == null || request.MaLoaiNgayNghi is null or <= 0
+                || !DateTime.TryParse(request.NgayNghi, out _)))
+            {
+                return BadRequest(new { success = false, message = "Ngày nghỉ hoặc loại ngày nghỉ không hợp lệ." });
+            }
+
             try
             {
                 // Xử lý file đính kèm
@@ -171,14 +177,7 @@ namespace HR_KD.ApiControllers
                 // Lưu các ngày nghỉ
                 foreach (var request in leaveRequests)
                 {
-                    if (!DateTime.TryParse(request.NgayNghi, out DateTime ngayNghi))
-                    {
-                        return BadRequest(new { success = false, message = $"Ngày nghỉ không hợp lệ: {request.NgayNghi}" });
-                    }
-                    if (request.MaLoaiNgayNghi == null || request.MaLoaiNgayNghi <= 0)
-                    {
-                        return BadRequest(new { success = false, message = "Mã loại ngày nghỉ không hợp lệ." });
-                    }
+                    var ngayNghi = DateTime.Parse(request.NgayNghi);
 
                     var leave = new NgayNghi
                     {

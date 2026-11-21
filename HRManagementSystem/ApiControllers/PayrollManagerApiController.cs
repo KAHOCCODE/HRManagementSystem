@@ -1,4 +1,5 @@
 ﻿using HR_KD.Data;
+using HR_KD.Authorization;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -12,7 +13,7 @@ namespace HR_KD.ApiControllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize(Roles = "LINE_MANAGER")]
+    [Authorize(Roles = PayrollAccess.ReviewRoles)]
     public class PayrollManagerApiController : ControllerBase
     {
         private readonly HrDbContext _context;
@@ -28,20 +29,12 @@ namespace HR_KD.ApiControllers
         [HttpGet("GetDepartmentPayrolls")]
         public async Task<IActionResult> GetDepartmentPayrolls(int year, int month)
         {
-            var username = User.Identity?.Name;
-            var manager = await _context.TaiKhoans
-                .Include(t => t.MaNvNavigation)
-                .ThenInclude(nv => nv.MaPhongBanNavigation)
-                .FirstOrDefaultAsync(t => t.Username == username);
+            if (year is < 1 or > 9999 || month is < 1 or > 12)
+                return BadRequest("Tháng hoặc năm không hợp lệ.");
 
-            if (manager?.MaNvNavigation?.MaPhongBanNavigation == null)
-                return Unauthorized("Bạn không có quyền xem bảng lương phòng ban.");
-
-            var maPhongBan = manager.MaNvNavigation.MaPhongBanNavigation.MaPhongBan;
-
-            var bangLuongs = await _context.BangLuongs
-                .Include(b => b.MaNvNavigation)
-                .Where(b => b.ThangNam.Year == year && b.ThangNam.Month == month && b.MaNvNavigation.MaPhongBan == maPhongBan)
+            var bangLuongs = await PayrollAccess.DepartmentPayrolls(_context, User)
+                .Include(b => b.MaNvNavigation).ThenInclude(nv => nv.MaPhongBanNavigation)
+                .Where(b => b.ThangNam.Year == year && b.ThangNam.Month == month)
                 .ToListAsync();
 
             var result = bangLuongs.Select(b => new
@@ -49,19 +42,21 @@ namespace HR_KD.ApiControllers
                 b.MaLuong,
                 b.MaNv,
                 HoTen = b.MaNvNavigation.HoTen,
+                TenPhongBan = b.MaNvNavigation.MaPhongBanNavigation.TenPhongBan,
                 b.ThucNhan,
                 b.TrangThai,
                 b.GhiChu,
-                TenTrangThai = _statusNameMapping.TryGetValue(b.TrangThai, out var name) ? name : b.TrangThai
+                TenTrangThai = _statusNameMapping.TryGetValue(b.TrangThai ?? "", out var name) ? name : b.TrangThai
             });
 
             return Ok(result);
         }
 
+        [Authorize(Roles = PayrollAccess.LineManager)]
         [HttpPost("SendToAccountant")]
         public async Task<IActionResult> SendToAccountant([FromBody] int[] maLuongList)
         {
-            var luongs = await _context.BangLuongs
+            var luongs = await PayrollAccess.DepartmentPayrolls(_context, User, forUpdate: true)
                 .Where(b => maLuongList.Contains(b.MaLuong) && b.TrangThai == "BL1A")
                 .ToListAsync();
 
@@ -85,21 +80,12 @@ namespace HR_KD.ApiControllers
         [HttpGet("GetUnconfirmedPayrolls")]
         public async Task<IActionResult> GetUnconfirmedPayrolls(int year, int month)
         {
-            var username = User.Identity?.Name;
-            var manager = await _context.TaiKhoans
-                .Include(t => t.MaNvNavigation)
-                .ThenInclude(nv => nv.MaPhongBanNavigation)
-                .FirstOrDefaultAsync(t => t.Username == username);
+            if (year is < 1 or > 9999 || month is < 1 or > 12)
+                return BadRequest("Tháng hoặc năm không hợp lệ.");
 
-            if (manager?.MaNvNavigation?.MaPhongBanNavigation == null)
-                return Unauthorized("Bạn không có quyền xem bảng lương phòng ban.");
-
-            var maPhongBan = manager.MaNvNavigation.MaPhongBanNavigation.MaPhongBan;
-
-            var bangLuongs = await _context.BangLuongs
-                .Include(b => b.MaNvNavigation)
+            var bangLuongs = await PayrollAccess.DepartmentPayrolls(_context, User)
+                .Include(b => b.MaNvNavigation).ThenInclude(nv => nv.MaPhongBanNavigation)
                 .Where(b => b.ThangNam.Year == year && b.ThangNam.Month == month
-                         && b.MaNvNavigation.MaPhongBan == maPhongBan
                          && b.TrangThai == "BL1")
                 .ToListAsync();
 
@@ -108,18 +94,20 @@ namespace HR_KD.ApiControllers
                 b.MaLuong,
                 b.MaNv,
                 HoTen = b.MaNvNavigation.HoTen,
+                TenPhongBan = b.MaNvNavigation.MaPhongBanNavigation.TenPhongBan,
                 b.ThucNhan,
                 b.TrangThai,
-                TenTrangThai = _statusNameMapping.TryGetValue(b.TrangThai, out var name) ? name : b.TrangThai
+                TenTrangThai = _statusNameMapping.TryGetValue(b.TrangThai ?? "", out var name) ? name : b.TrangThai
             });
 
             return Ok(result);
         }
 
+        [Authorize(Roles = PayrollAccess.LineManager)]
         [HttpPost("MarkUnconfirmedAsConfirmed")]
         public async Task<IActionResult> MarkUnconfirmedAsConfirmed([FromBody] int[] maLuongList)
         {
-            var luongs = await _context.BangLuongs
+            var luongs = await PayrollAccess.DepartmentPayrolls(_context, User, forUpdate: true)
                 .Where(b => maLuongList.Contains(b.MaLuong) && b.TrangThai == "BL1")
                 .ToListAsync();
 
@@ -144,21 +132,12 @@ namespace HR_KD.ApiControllers
         [HttpGet("GetEmployeeRevisionRequests")]
         public async Task<IActionResult> GetEmployeeRevisionRequests(int year, int month)
         {
-            var username = User.Identity?.Name;
-            var manager = await _context.TaiKhoans
-                .Include(t => t.MaNvNavigation)
-                .ThenInclude(nv => nv.MaPhongBanNavigation)
-                .FirstOrDefaultAsync(t => t.Username == username);
+            if (year is < 1 or > 9999 || month is < 1 or > 12)
+                return BadRequest("Tháng hoặc năm không hợp lệ.");
 
-            if (manager?.MaNvNavigation?.MaPhongBanNavigation == null)
-                return Unauthorized("Bạn không có quyền xem yêu cầu chỉnh sửa.");
-
-            var maPhongBan = manager.MaNvNavigation.MaPhongBanNavigation.MaPhongBan;
-
-            var bangLuongs = await _context.BangLuongs
-                .Include(b => b.MaNvNavigation)
+            var bangLuongs = await PayrollAccess.DepartmentPayrolls(_context, User)
+                .Include(b => b.MaNvNavigation).ThenInclude(nv => nv.MaPhongBanNavigation)
                 .Where(b => b.ThangNam.Year == year && b.ThangNam.Month == month
-                         && b.MaNvNavigation.MaPhongBan == maPhongBan
                          && b.TrangThai == "BL1R")
                 .ToListAsync();
 
@@ -167,19 +146,21 @@ namespace HR_KD.ApiControllers
                 b.MaLuong,
                 b.MaNv,
                 HoTen = b.MaNvNavigation.HoTen,
+                TenPhongBan = b.MaNvNavigation.MaPhongBanNavigation.TenPhongBan,
                 b.ThucNhan,
                 b.TrangThai,
                 b.GhiChu,
-                TenTrangThai = _statusNameMapping.TryGetValue(b.TrangThai, out var name) ? name : b.TrangThai
+                TenTrangThai = _statusNameMapping.TryGetValue(b.TrangThai ?? "", out var name) ? name : b.TrangThai
             });
 
             return Ok(result);
         }
 
+        [Authorize(Roles = PayrollAccess.LineManager)]
         [HttpPost("HandleEmployeeRevisionRequest/{maLuong}")]
         public async Task<IActionResult> HandleEmployeeRevisionRequest(int maLuong, [FromBody] RevisionRequestAction action)
         {
-            var payroll = await _context.BangLuongs
+            var payroll = await PayrollAccess.DepartmentPayrolls(_context, User, forUpdate: true)
                 .Include(b => b.MaNvNavigation)
                 .FirstOrDefaultAsync(b => b.MaLuong == maLuong && b.TrangThai == "BL1R");
 
@@ -213,21 +194,12 @@ namespace HR_KD.ApiControllers
         [HttpGet("GetAccountantRejections")]
         public async Task<IActionResult> GetAccountantRejections(int year, int month)
         {
-            var username = User.Identity?.Name;
-            var manager = await _context.TaiKhoans
-                .Include(t => t.MaNvNavigation)
-                .ThenInclude(nv => nv.MaPhongBanNavigation)
-                .FirstOrDefaultAsync(t => t.Username == username);
+            if (year is < 1 or > 9999 || month is < 1 or > 12)
+                return BadRequest("Tháng hoặc năm không hợp lệ.");
 
-            if (manager?.MaNvNavigation?.MaPhongBanNavigation == null)
-                return Unauthorized("Bạn không có quyền xem bảng lương bị trả về.");
-
-            var maPhongBan = manager.MaNvNavigation.MaPhongBanNavigation.MaPhongBan;
-
-            var bangLuongs = await _context.BangLuongs
-                .Include(b => b.MaNvNavigation)
+            var bangLuongs = await PayrollAccess.DepartmentPayrolls(_context, User)
+                .Include(b => b.MaNvNavigation).ThenInclude(nv => nv.MaPhongBanNavigation)
                 .Where(b => b.ThangNam.Year == year && b.ThangNam.Month == month
-                         && b.MaNvNavigation.MaPhongBan == maPhongBan
                          && b.TrangThai == "BL2R")
                 .ToListAsync();
 
@@ -236,19 +208,21 @@ namespace HR_KD.ApiControllers
                 b.MaLuong,
                 b.MaNv,
                 HoTen = b.MaNvNavigation.HoTen,
+                TenPhongBan = b.MaNvNavigation.MaPhongBanNavigation.TenPhongBan,
                 b.ThucNhan,
                 b.TrangThai,
                 b.GhiChu,
-                TenTrangThai = _statusNameMapping.TryGetValue(b.TrangThai, out var name) ? name : b.TrangThai
+                TenTrangThai = _statusNameMapping.TryGetValue(b.TrangThai ?? "", out var name) ? name : b.TrangThai
             });
 
             return Ok(result);
         }
 
+        [Authorize(Roles = PayrollAccess.LineManager)]
         [HttpPost("ResendToAccountant/{maLuong}")]
         public async Task<IActionResult> ResendToAccountant(int maLuong, [FromBody] string adjustmentNote)
         {
-            var payroll = await _context.BangLuongs
+            var payroll = await PayrollAccess.DepartmentPayrolls(_context, User, forUpdate: true)
                 .FirstOrDefaultAsync(b => b.MaLuong == maLuong && b.TrangThai == "BL2R");
 
             if (payroll == null)

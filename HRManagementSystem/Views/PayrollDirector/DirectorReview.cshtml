@@ -259,7 +259,7 @@
                         Swal.fire({
                             icon: 'warning',
                             title: 'Cảnh báo!',
-                            html: response.message + '<br>' + response.errors.join('<br>')
+                            text: response.message + ' ' + response.errors.join(' ')
                         });
                     } else {
                         Swal.fire('Thành công!', response.message || 'Gửi phiếu lương thành công.', 'success');
@@ -389,7 +389,7 @@
                         Swal.fire({
                             icon: 'warning',
                             title: 'Cảnh báo!',
-                            html: response.message + '<br>' + response.errors.join('<br>')
+                            text: response.message + ' ' + response.errors.join(' ')
                         });
                     } else {
                         Swal.fire('Thành công!', response.message || 'Gửi phiếu lương thành công.', 'success');

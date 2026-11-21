@@ -30,7 +30,11 @@ builder.Services.AddSession(options =>
     options.Cookie.IsEssential = true;
 });
 
+builder.Services.AddHttpClient(EmailService.HttpClientName, client => client.Timeout = TimeSpan.FromSeconds(15))
+    .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
 builder.Services.AddScoped<EmailService>();
+builder.Services.AddDataProtection();
+builder.Services.AddScoped<AccountActivationService>();
 builder.Services.AddScoped<IAuthorizationHandler, ManageSubordinateHandler>();
 builder.Services.AddScoped<ExcelTemplateService>();
 builder.Services.AddScoped<UsernameGeneratorService>();

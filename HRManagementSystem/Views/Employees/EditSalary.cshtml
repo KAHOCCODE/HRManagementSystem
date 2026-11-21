@@ -70,7 +70,7 @@
                                         </datalist>
                                     </div>
                                     <p id="minimumWageText" class="mt-1 text-xs text-gray-500">
-                                        Lương cơ bản trước thuế (Tối thiểu: <span id="minimumWageValue">0</span> VNĐ, Tối đa: 100,000,000 VNĐ)
+                                        Lương cơ bản trước thuế (Tối thiểu: <span id="minimumWageValue">—</span> VNĐ, Tối đa: 100,000,000 VNĐ)
                                     </p>
                                 </div>
 
@@ -290,7 +290,7 @@
                         updateSummary();
                     },
                     error: function (xhr) {
-                        let errorMessage = xhr.responseJSON?.message || "Không thể tính toán bảo hiểm.";
+                        let errorMessage = xhr.responseJSON?.message || xhr.responseText || "Không thể tính toán bảo hiểm.";
                         Swal.fire({
                             icon: "error",
                             title: "Lỗi",
@@ -343,36 +343,19 @@
                 $("#luongThucLanh").text(formatCurrency(luongThucLanh));
             }
 
-            // Fetch minimum wage
             function loadInitialData() {
-                $.ajax({
-                    url: "/api/PayrollSettingApi/muc-luong-toi-thieu-vung",
-                    method: "GET",
-                    success: function (data) {
-                        var activeMinimumWage = data.find(m => m.isActive);
-                        if (activeMinimumWage) {
-                            $("#minimumWage").val(activeMinimumWage.mucLuongToiThieuThang);
-                            $("#minimumWageValue").text(activeMinimumWage.mucLuongToiThieuThang.toLocaleString());
-                            updateProgressBar();
-                            updateSummary();
-                        } else {
-                            Swal.fire({
-                                icon: "error",
-                                title: "Lỗi",
-                                text: "Không tìm thấy mức lương tối thiểu vùng đang hoạt động.",
-                                confirmButtonColor: "#ca8a04"
-                            });
-                        }
-                    },
-                    error: function () {
-                        Swal.fire({
-                            icon: "error",
-                            title: "Lỗi",
-                            text: "Không thể tải mức lương tối thiểu.",
-                            confirmButtonColor: "#ca8a04"
-                        });
-                    }
-                });
+                const employeeId = $("#MaNv").val();
+                const date = $("#NgayApDung").val();
+                if (!employeeId || !date) return;
+
+                $("#minimumWage").val("0");
+                $("#minimumWageValue").text("—");
+                $.getJSON(`/api/SalaryApi/minimum-wage/${employeeId}`, { ngayApDung: date })
+                    .done(function (data) {
+                        if ($("#NgayApDung").val() !== date) return;
+                        $("#minimumWage").val(data.monthlyMinimumWage);
+                        $("#minimumWageValue").text(data.monthlyMinimumWage.toLocaleString("vi-VN"));
+                    });
             }
 
             // Fetch salary details and initialize form
@@ -489,6 +472,11 @@
             $("input:not(#LuongCoBan, #PhuCapCoDinh, #ThuongCoDinh), textarea").on("input change keyup", function() {
                 updateProgressBar();
                 updateSummary();
+            });
+
+            $("#NgayApDung").on("change", function () {
+                loadInitialData();
+                updateInsuranceFields();
             });
 
             // Form submission

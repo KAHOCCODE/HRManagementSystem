@@ -5,12 +5,12 @@
 @inject HrDbContext DbContext
 
 <!DOCTYPE html>
-<html lang="en">
+<html lang="vi">
 
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=0">
-    <title>Hr_3k1d</title>
+    <title>@(ViewData["Title"] ?? "Quản lý nhân sự")</title>
     <link rel="stylesheet" type="text/css" href="~/assets/css/bootstrap.min.css">
     <link rel="stylesheet" type="text/css" href="~/assets/css/font-awesome.min.css">
     <link rel="stylesheet" type="text/css" href="~/assets/css/style.css">
@@ -23,88 +23,12 @@
         <div class="header">
             <div class="header-left">
                 <a href="~/Home/Index" class="logo">
-                    <img src="~/assets/img/logo.png" width="35" height="35" alt=""> <span>Preclinic</span>
+                    <i class="fa fa-users" aria-hidden="true"></i> <span>Nhân sự</span>
                 </a>
             </div>
             <a id="toggle_btn" href="javascript:void(0);"><i class="fa fa-bars"></i></a>
             <a id="mobile_btn" class="mobile_btn float-left" href="#sidebar"><i class="fa fa-bars"></i></a>
             <ul class="nav user-menu float-right">
-                <li class="nav-item dropdown d-none d-sm-block">
-                    <a href="#" class="dropdown-toggle nav-link" data-toggle="dropdown"><i class="fa fa-bell-o"></i> <span class="badge badge-pill bg-danger float-right">3</span></a>
-                    <div class="dropdown-menu notifications">
-                        <div class="topnav-dropdown-header">
-                            <span>Notifications</span>
-                        </div>
-                        <div class="drop-scroll">
-                            <ul class="notification-list">
-                                <li class="notification-message">
-                                    <a href="activities.html">
-                                        <div class="media">
-                                            <span class="avatar">
-                                                <img alt="John Doe" src="~/assets/img/user.jpg" class="img-fluid rounded-circle">
-                                            </span>
-                                            <div class="media-body">
-                                                <p class="noti-details"><span class="noti-title">John Doe</span> added new task <span class="noti-title">Patient appointment booking</span></p>
-                                                <p class="noti-time"><span class="notification-time">4 mins ago</span></p>
-                                            </div>
-                                        </div>
-                                    </a>
-                                </li>
-                                <li class="notification-message">
-                                    <a href="activities.html">
-                                        <div class="media">
-                                            <span class="avatar">V</span>
-                                            <div class="media-body">
-                                                <p class="noti-details"><span class="noti-title">Tarah Shropshire</span> changed the task name <span class="noti-title">Appointment booking with payment gateway</span></p>
-                                                <p class="noti-time"><span class="notification-time">6 mins ago</span></p>
-                                            </div>
-                                        </div>
-                                    </a>
-                                </li>
-                                <li class="notification-message">
-                                    <a href="activities.html">
-                                        <div class="media">
-                                            <span class="avatar">L</span>
-                                            <div class="media-body">
-                                                <p class="noti-details"><span class="noti-title">Misty Tison</span> added <span class="noti-title">Domenic Houston</span> and <span class="noti-title">Claire Mapes</span> to project <span class="noti-title">Doctor available module</span></p>
-                                                <p class="noti-time"><span class="notification-time">8 mins ago</span></p>
-                                            </div>
-                                        </div>
-                                    </a>
-                                </li>
-                                <li class="notification-message">
-                                    <a href="activities.html">
-                                        <div class="media">
-                                            <span class="avatar">G</span>
-                                            <div class="media-body">
-                                                <p class="noti-details"><span class="noti-title">Rolland Webber</span> completed task <span class="noti-title">Patient and Doctor video conferencing</span></p>
-                                                <p class="noti-time"><span class="notification-time">12 mins ago</span></p>
-                                            </div>
-                                        </div>
-                                    </a>
-                                </li>
-                                <li class="notification-message">
-                                    <a href="activities.html">
-                                        <div class="media">
-                                            <span class="avatar">V</span>
-                                            <div class="media-body">
-                                                <p class="noti-details"><span class="noti-title">Bernardo Galaviz</span> added new task <span class="noti-title">Private chat module</span></p>
-                                                <p class="noti-time"><span class="notification-time">2 days ago</span></p>
-                                            </div>
-                                        </div>
-                                    </a>
-                                </li>
-                            </ul>
-                        </div>
-                        <div class="topnav-dropdown-footer">
-                            <a href="activities.html">View all Notifications</a>
-                        </div>
-                    </div>
-                </li>
-                <li class="nav-item dropdown d-none d-sm-block">
-                    <a href="javascript:void(0);" id="open_msg_box" class="hasnotifications nav-link"><i class="fa fa-comment-o"></i> <span class="badge badge-pill bg-danger float-right">8</span></a>
-                </li>
-
                 @{
                     // Check authentication status
                     var isLoggedIn = User.Identity.IsAuthenticated;
@@ -145,9 +69,6 @@
                             <span>@hoTen</span>
                         </a>
                         <div class="dropdown-menu">
-                            <a class="dropdown-item" href="profile.html">My Profile</a>
-                            <a class="dropdown-item" href="edit-profile.html">Edit Profile</a>
-                            <a class="dropdown-item" href="settings.html">Settings</a>
                             <form asp-controller="Account" asp-action="Logout" method="post">
                                 <button type="submit" class="dropdown-item">Đăng xuất</button>
                             </form>
@@ -165,9 +86,6 @@
                 <div class="dropdown-menu dropdown-menu-right">
                     @if (isLoggedIn && !string.IsNullOrEmpty(hoTen))
                     {
-                        <a class="dropdown-item" href="profile.html">My Profile</a>
-                        <a class="dropdown-item" href="edit-profile.html">Edit Profile</a>
-                        <a class="dropdown-item" href="settings.html">Settings</a>
                         <form asp-controller="Account" asp-action="Logout" method="post">
                             <button type="submit" class="dropdown-item">Đăng xuất</button>
                         </form>
@@ -195,14 +113,13 @@
                             <li class="submenu">
                                 <a href="#"><i class="fa fa-users"></i> <span>Nhân viên</span> <span class="menu-arrow"></span></a>
                                 <ul style="display: none;">
-                                    <li><a href="~/Employees/Index"><i class="fa fa-list"></i> Danh sách nhân viên</a></li>
-                                    <li><a href="~/Employees/Create"><i class="fa fa-user-plus"></i> Thêm nhân viên</a></li>
+                                    @if (User.IsInRole("EMPLOYEE_MANAGER"))
+                                    {
+                                        <li><a href="~/Employees/Index"><i class="fa fa-list"></i> Danh sách nhân viên</a></li>
+                                        <li><a href="~/Employees/Create"><i class="fa fa-user-plus"></i> Thêm nhân viên</a></li>
+                                        <li><a href="~/Employees/EmployeeContracts"><i class="fa fa-file-text"></i> Quản lý hợp đồng</a></li>
+                                    }
                                     <li><a href="~/Employees/Roles"><i class="fa fa-key"></i> Cấp quyền nhân viên</a></li>
-                                    <li><a href="~/Employees/Profiles"><i class="fa fa-id-card"></i> Quản lý hồ sơ</a></li>
-                                    <li><a href="~/Employees/EmployeeContracts"><i class="fa fa-file-text"></i> Quản lý hợp đồng</a></li>
-                                    <li><a href="~/Employees/Rewards"><i class="fa fa-trophy"></i> Khen thưởng & Kỷ luật</a></li>
-                                    <li><a href="~/Employees/Transfers"><i class="fa fa-exchange"></i> Thuyên chuyển công tác</a></li>
-                                    <li><a href="~/Employees/Resignations"><i class="fa fa-sign-out"></i> Nghỉ việc</a></li>
                                 </ul>
                             </li>
                         }
@@ -259,7 +176,7 @@
                                 <!-- Restricted to DIRECTOR role -->
                                 @if (User.IsInRole("DIRECTOR"))
                                 {
-                                    <li><a href="~/LeaveManager/Director"><i class="fa fa-check-circle"></i> Duyệt nghỉ phép</a></li>
+                                    <li><a href="~/LeaveManager/Index"><i class="fa fa-check-circle"></i> Duyệt nghỉ phép</a></li>
                                 }
                             </ul>
                         </li>
@@ -311,20 +228,15 @@
                             </ul>
                         </li> *@
 
-                        <li>
-                            @{
-                                string? daoTaoUrl = User.IsInRole("EMPLOYEE") ? Url.Action("ViewTraining", "DaoTao") :
-                                User.IsInRole("EMPLOYEE_MANAGER") ? Url.Action("Index", "DaoTao") :
-                                "/Account/Login";
-                            }
-                            <a href="@daoTaoUrl"><i class="fa fa-graduation-cap"></i> <span>Đào tạo</span></a>
-                        </li>
+                        @if (isEmployee || isEmployeeManager)
+                        {
+                            var daoTaoUrl = isEmployeeManager ? Url.Action("Index", "DaoTao") : Url.Action("ViewTraining", "DaoTao");
+                            <li><a href="@daoTaoUrl"><i class="fa fa-graduation-cap"></i> <span>Đào tạo</span></a></li>
+                        }
 
                         <li class="submenu">
                             <a href="#"><i class="fa fa-line-chart"></i> <span>Báo cáo</span> <span class="menu-arrow"></span></a>
                             <ul style="display: none;">
-                                <li><a href="~/Reports/Employee"><i class="fa fa-users"></i> Báo cáo nhân viên</a></li>
-                                <li><a href="~/Reports/Salary"><i class="fa fa-dollar-sign"></i> Báo cáo lương</a></li>
                                 <!-- Restricted to DIRECTOR role -->
                                 @if (User.IsInRole("DIRECTOR"))
                                 {
@@ -349,7 +261,7 @@
                             <li class="submenu">
                                 <a href="#"><i class="fa fa-cog"></i> <span>Cài Đặt</span> <span class="menu-arrow"></span></a>
                                 <ul style="display: none;">
-                                    <li><a href="~/Account/ResetActivation"><i class="fa fa-key"></i> Cấp lại mật khẩu tạm</a></li>
+                                    <li><a href="~/Account/ResetActivation"><i class="fa fa-key"></i> Cấp lại mật khẩu</a></li>
                                     <li><a href="~/Worksites"><i class="fa fa-building"></i> Chi nhánh và nơi làm việc</a></li>
                                     <li><a href="~/PayrollSetting"><i class="fa fa-cog"></i> Cài đặt cấu hình lương</a></li>
                                     <li><a href="~/LoaiNgayNghi"><i class="fa fa-cog"></i> Cài đặt cấu hình loại ngày nghỉ</a></li>
@@ -377,35 +289,6 @@
                     </div>
                 </div>
             </div>
-            <div class="notification-box">
-                <div class="msg-sidebar notifications msg-noti">
-                    <div class="topnav-dropdown-header">
-                        <span>Messages</span>
-                    </div>
-                    <div class="drop-scroll msg-list-scroll" id="msg_list">
-                        <ul class="list-box">
-                            <li>
-                                <a href="chat.html">
-                                    <div class="list-item">
-                                        <div class="list-left">
-                                            <span class="avatar">R</span>
-                                        </div>
-                                        <div class="list-body">
-                                            <span class="message-author">Richard Miles</span>
-                                            <span class="message-time">12:28 AM</span>
-                                            <div class="clearfix"></div>
-                                            <span class="message-content">Lorem ipsum dolor sit amet, consectetur adipiscing</span>
-                                        </div>
-                                    </div>
-                                </a>
-                            </li>
-                        </ul>
-                    </div>
-                    <div class="topnav-dropdown-footer">
-                        <a href="chat.html">See all messages</a>
-                    </div>
-                </div>
-            </div>
         </div>
     </div>
 
@@ -420,4 +303,3 @@
 </body>
 
 </html>
- 

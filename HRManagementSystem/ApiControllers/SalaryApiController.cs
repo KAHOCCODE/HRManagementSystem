@@ -25,6 +25,18 @@ namespace HR_KD.Controllers.ApiControllers
             _payrollCalculator = payrollCalculator;
         }
 
+        [HttpGet("minimum-wage/{maNv:int}")]
+        public async Task<IActionResult> GetMinimumWage(int maNv, DateTime ngayApDung)
+        {
+            if (ngayApDung == default)
+                return BadRequest(new { message = "Chọn ngày áp dụng." });
+
+            var minimumWage = await _payrollCalculator.ResolveMonthlyMinimumWage(maNv, ngayApDung);
+            return minimumWage.HasValue
+                ? Ok(new { monthlyMinimumWage = minimumWage.Value })
+                : NotFound(new { message = "Chưa có mức lương tối thiểu cho nơi làm việc và ngày áp dụng đã chọn." });
+        }
+
         // GET: api/SalaryApi/{maNv}
         [HttpGet("{maNv}")]
         public async Task<ActionResult<ThongTinLuongNVDTO>> GetSalary(int maNv)

@@ -1,5 +1,4 @@
 ﻿@model LoginViewModel
-@inject Microsoft.Extensions.Configuration.IConfiguration Configuration
 @{
     Layout = null;
 }
@@ -20,18 +19,8 @@
             <div class="col-lg-6">
                 <div class="card h-100">
                     <div class="form-section">
-                        <div class="d-flex justify-content-center mb-4 d-lg-none">
-                            <div class="company-logo">
-                                <i class="fas fa-building"></i> COMPANY
-                            </div>
-                        </div>
-                        
                         <h2 class="form-title text-center">Đăng nhập hệ thống</h2>
                         
-                        @if (bool.TryParse(Configuration["Demo:Enabled"], out var isDemo) && isDemo)
-                        {
-                            <p class="alert alert-info">Bản dùng thử với dữ liệu mẫu đến @HR_KD.Data.DemoData.DataThrough.ToString("dd/MM/yyyy"). Chỉ nhập thông tin giả lập.</p>
-                        }
                         @if (TempData["Error"] != null)
                         {
                             <div class="alert alert-danger alert-dismissible fade show" role="alert">
@@ -45,13 +34,12 @@
                         {
                             <div class="alert alert-success" role="status">@success</div>
                         }
-                        <p><a asp-action="Activate">Đặt mật khẩu lần đầu</a></p>
                         <form asp-action="Login" method="post">
                             <div class="input-group mb-4">
                                 <span class="input-group-text">
                                     <i class="fas fa-user"></i>
                                 </span>
-                                <input asp-for="Username" class="form-control" placeholder="Nhập tên đăng nhập">
+                                <input asp-for="Username" class="form-control" placeholder="Nhập tên đăng nhập" autocomplete="username" aria-label="Tên đăng nhập">
                             </div>
                             <span asp-validation-for="Username" class="text-danger d-block mb-3"></span>
                             
@@ -59,7 +47,7 @@
                                 <span class="input-group-text">
                                     <i class="fas fa-lock"></i>
                                 </span>
-                                <input asp-for="Password" type="password" class="form-control" placeholder="Nhập mật khẩu">
+                                <input asp-for="Password" type="password" class="form-control" placeholder="Nhập mật khẩu" autocomplete="current-password" aria-label="Mật khẩu">
                             </div>
                             <span asp-validation-for="Password" class="text-danger d-block mb-3"></span>
                             
@@ -68,16 +56,12 @@
                                     <input asp-for="RememberMe" class="form-check-input">
                                     <label asp-for="RememberMe" class="form-check-label">Nhớ đăng nhập</label>
                                 </div>
-                                <a href="#" class="text-decoration-none">Quên mật khẩu?</a>
                             </div>
                             
                             <button type="submit" class="btn btn-primary login-btn w-100 mb-4">
                                 <i class="fas fa-sign-in-alt me-2"></i>Đăng nhập
                             </button>
                             
-                            <div class="text-center">
-                                <small class="text-muted">© 2025 Company. Tất cả quyền được bảo lưu.</small>
-                            </div>
                         </form>
                     </div>
                 </div>
@@ -86,36 +70,7 @@
             <div class="col-lg-6 d-none d-lg-block">
                 <div class="card h-100">
                     <div class="company-section">
-                        <div class="company-logo">
-                            <i class="fas fa-building"></i> COMPANY
-                        </div>
-                        
-                        <h3 class="mb-4">Hệ thống quản lý nhân viên</h3>
-                        
-                        <p class="mb-5">Chào mừng bạn quay trở lại hệ thống. Vui lòng đăng nhập để truy cập vào tài khoản và quản lý công việc của bạn.</p>
-                        
-                        <div class="features mt-4">
-                            <div class="feature-item">
-                                <div class="feature-icon">
-                                    <i class="fas fa-shield-alt"></i>
-                                </div>
-                                <div>Bảo mật cao</div>
-                            </div>
-                            
-                            <div class="feature-item">
-                                <div class="feature-icon">
-                                    <i class="fas fa-chart-line"></i>
-                                </div>
-                                <div>Quản lý hiệu quả</div>
-                            </div>
-                            
-                            <div class="feature-item">
-                                <div class="feature-icon">
-                                    <i class="fas fa-sync-alt"></i>
-                                </div>
-                                <div>Đồng bộ dữ liệu</div>
-                            </div>
-                        </div>
+                        <h3>Quản lý nhân sự</h3>
                     </div>
                 </div>
             </div>

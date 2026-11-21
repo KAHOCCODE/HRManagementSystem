@@ -43,6 +43,7 @@ namespace HR_KD.Controllers.Api
         }
 
         // PUT: api/LoaiNgayNghi/5
+        [Authorize(Roles = "DIRECTOR")]
         [HttpPut("{id}")]
         public async Task<IActionResult> PutLoaiNgayNghi(int id, LoaiNgayNghi loaiNgayNghi)
         {
@@ -90,6 +91,7 @@ namespace HR_KD.Controllers.Api
         }
 
         // POST: api/LoaiNgayNghi
+        [Authorize(Roles = "DIRECTOR")]
         [HttpPost]
         public async Task<ActionResult<LoaiNgayNghi>> PostLoaiNgayNghi(LoaiNgayNghi loaiNgayNghi)
         {
@@ -117,6 +119,7 @@ namespace HR_KD.Controllers.Api
         }
 
         // DELETE: api/LoaiNgayNghi/5
+        [Authorize(Roles = "DIRECTOR")]
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteLoaiNgayNghi(int id)
         {

@@ -114,13 +114,16 @@ namespace HR_KD.ApiControllers
 
         // Gửi tất cả cho nhân viên (BL4 hoặc BL3 được duyệt trực tiếp ➜ BL5)
         [HttpPost("SendToEmployees")]
-        public async Task<IActionResult> SendToEmployees([FromBody] int[] maLuongList)
+        public async Task<IActionResult> SendToEmployees([FromBody] int[] maLuongList, [FromServices] ILogger<PayrollDirectorApiController> logger)
         {
             var luongs = await _context.BangLuongs
                 .Where(b => maLuongList.Contains(b.MaLuong) && (b.TrangThai == "BL3" || b.TrangThai == "BL4"))
                 .Include(b => b.MaNvNavigation)
                     .ThenInclude(nv => nv.MaPhongBanNavigation)
                 .ToListAsync();
+
+            if (luongs.Count == 0 || luongs.Count != maLuongList.Distinct().Count())
+                return BadRequest("Một hoặc nhiều bảng lương không ở trạng thái phù hợp để gửi.");
 
             var currentUser = User.Identity?.Name;
             var currentTime = DateTime.Now;
@@ -143,12 +146,12 @@ namespace HR_KD.ApiControllers
                     var nv = payroll.MaNvNavigation;
                     if (string.IsNullOrWhiteSpace(nv.Email))
                     {
-                        errors.Add($"Nhân viên {nv.MaNv} ({nv.HoTen}) chưa có email.");
+                        errors.Add($"Nhân viên {nv.MaNv} chưa có địa chỉ email.");
                         continue;
                     }
 
                     var subject = $"[BẢNG LƯƠNG] Tháng {payroll.ThangNam:MM/yyyy}";
-                    var body = $"Xin chào <b>{nv.HoTen}</b>,<br><br>" +
+                    var body = $"Xin chào <b>{System.Net.WebUtility.HtmlEncode(nv.HoTen)}</b>,<br><br>" +
                                $"Bảng lương tháng <b>{payroll.ThangNam:MM/yyyy}</b> của bạn đã được phê duyệt và đính kèm trong email này.<br>" +
                                $"Vui lòng kiểm tra kỹ và phản hồi nếu có thắc mắc trước hạn quy định.<br><br>Trân trọng.";
 
@@ -161,7 +164,8 @@ namespace HR_KD.ApiControllers
                 }
                 catch (Exception ex)
                 {
-                    errors.Add($"Lỗi gửi bảng lương {payroll.MaLuong}: {ex.Message}");
+                    logger.LogWarning(ex, "Không gửi được bảng lương {PayrollId}.", payroll.MaLuong);
+                    errors.Add($"Không gửi được bảng lương {payroll.MaLuong}. Kiểm tra địa chỉ người nhận và cấu hình email.");
                 }
             }
 

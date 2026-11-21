@@ -1,5 +1,6 @@
 ﻿using HR_KD.Data;
 using HR_KD.Helpers;
+using HR_KD.Services;
 using System.Text;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
@@ -18,11 +19,13 @@ namespace HR_KD.Controllers
     {
         private readonly HrDbContext _context;
         private readonly IHttpContextAccessor _httpContextAccessor;
+        private readonly AccountActivationService _activation;
 
-        public AccountController(HrDbContext context, IHttpContextAccessor httpContextAccessor)
+        public AccountController(HrDbContext context, IHttpContextAccessor httpContextAccessor, AccountActivationService activation)
         {
             _context = context;
             _httpContextAccessor = httpContextAccessor;
+            _activation = activation;
         }
 
         [AllowAnonymous]
@@ -100,27 +103,37 @@ namespace HR_KD.Controllers
         [AllowAnonymous]
         [HttpGet]
         [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
-        public IActionResult Activate() => View();
+        public async Task<IActionResult> Activate(string? ticket)
+        {
+            Response.Headers["Referrer-Policy"] = "no-referrer";
+            return await GetPendingAccount(ticket) == null ? NotFound() : View(model: ticket);
+        }
 
         [AllowAnonymous]
         [HttpPost]
         [ValidateAntiForgeryToken]
         [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
-        public async Task<IActionResult> Activate(string username, string temporaryPassword, string newPassword)
+        public async Task<IActionResult> Activate(string? ticket, string temporaryPassword, string newPassword)
         {
-            if (string.IsNullOrWhiteSpace(username) || string.IsNullOrEmpty(temporaryPassword)
+            Response.Headers["Referrer-Policy"] = "no-referrer";
+            var user = await GetPendingAccount(ticket);
+            if (user == null)
+            {
+                return NotFound();
+            }
+
+            if (string.IsNullOrEmpty(temporaryPassword)
                 || string.IsNullOrWhiteSpace(newPassword) || newPassword.Length < 12
                 || Encoding.UTF8.GetByteCount(newPassword) > 56 || newPassword == temporaryPassword)
             {
                 ModelState.AddModelError("", "Mật khẩu mới cần ít nhất 12 ký tự, tối đa 56 byte và khác mật khẩu tạm.");
-                return View();
+                return View(model: ticket);
             }
 
-            var user = await _context.TaiKhoans.AsNoTracking().SingleOrDefaultAsync(x => x.Username == username);
-            if (user == null || !PasswordHelper.VerifyTemporary(temporaryPassword, user.PasswordSalt, user.PasswordHash))
+            if (!PasswordHelper.VerifyTemporary(temporaryPassword, user.PasswordSalt, user.PasswordHash))
             {
                 ModelState.AddModelError("", "Thông tin kích hoạt không hợp lệ hoặc đã hết hạn.");
-                return View();
+                return View(model: ticket);
             }
 
             var salt = PasswordHelper.GenerateRandomKey();
@@ -134,11 +147,23 @@ namespace HR_KD.Controllers
             if (updated != 1)
             {
                 ModelState.AddModelError("", "Thông tin kích hoạt không còn hiệu lực.");
-                return View();
+                return View(model: ticket);
             }
 
             TempData["Success"] = "Đã đặt mật khẩu. Bạn có thể đăng nhập.";
             return RedirectToAction(nameof(Login));
+        }
+
+        private async Task<TaiKhoan?> GetPendingAccount(string? ticket)
+        {
+            if (!_activation.TryRead(ticket, out var username, out var stamp))
+            {
+                return null;
+            }
+
+            var account = await _context.TaiKhoans.AsNoTracking().SingleOrDefaultAsync(x => x.Username == username);
+            return account != null && PasswordHelper.IsTemporary(account.PasswordHash)
+                && PasswordHelper.SessionStamp(account.PasswordHash) == stamp ? account : null;
         }
 
         [Authorize(Roles = "DIRECTOR")]
@@ -148,7 +173,7 @@ namespace HR_KD.Controllers
         [Authorize(Roles = "DIRECTOR")]
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> ResetActivation(string username, [FromServices] EmailService emailService,
+        public async Task<IActionResult> ResetActivation(string username,
             [FromServices] ILogger<AccountController> logger)
         {
             var user = await _context.TaiKhoans.Include(x => x.MaNvNavigation)
@@ -164,8 +189,7 @@ namespace HR_KD.Controllers
             var hash = PasswordHelper.HashTemporaryPassword(temporaryPassword, salt);
             try
             {
-                emailService.SendEmail(user.MaNvNavigation.Email, "Kích hoạt lại tài khoản nhân sự",
-                    $"Tài khoản: {System.Net.WebUtility.HtmlEncode(user.Username)}<br>Mật khẩu tạm: {temporaryPassword}<br>Chọn Đặt mật khẩu lần đầu trên trang đăng nhập trong vòng 24 giờ.");
+                _activation.Send(user.MaNvNavigation.Email, user.Username, temporaryPassword, hash);
             }
             catch (Exception ex)
             {

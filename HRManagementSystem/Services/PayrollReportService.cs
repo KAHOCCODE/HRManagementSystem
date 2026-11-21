@@ -29,8 +29,9 @@ public class PayrollReportService
         var phongBan = nv.MaPhongBanNavigation?.TenPhongBan ?? "N/A";
 
         var thongTinLuong = await _context.ThongTinLuongNVs
-            .Where(x => x.MaNv == nv.MaNv)
+            .Where(x => x.MaNv == nv.MaNv && x.NgayApDung < payroll.ThangNam.ToDateTime(TimeOnly.MinValue).AddDays(1))
             .OrderByDescending(x => x.NgayApDung)
+            .ThenByDescending(x => x.MaLuongNV)
             .FirstOrDefaultAsync();
 
         var hopDong = await _context.HopDongLaoDongs
@@ -49,7 +50,7 @@ public class PayrollReportService
             {
                 page.Margin(30);
                 page.Size(PageSizes.A4);
-                page.DefaultTextStyle(x => x.FontFamily("Arial").FontSize(10));
+                page.DefaultTextStyle(x => x.FontFamily("Lato").FontSize(10));
 
                 page.Header().AlignCenter().Text("BẢNG LƯƠNG NHÂN VIÊN")
                     .Bold().FontSize(16).Underline();

@@ -256,6 +256,9 @@
     let overtimeRates = [];
     let holidayData = {};
     let attendanceStatusData = {};
+    let weeklySchedule = null;
+    const isScheduledWorkday = day => day >= 1 && day <= 5 ||
+        day === 6 && (weeklySchedule === 'T2 - Nửa T7' || weeklySchedule === 'T2 - T7');
     let workTimeConfig = null; // Store ChamCongGioRaVao active record
 
     document.addEventListener('DOMContentLoaded', async () => {
@@ -273,6 +276,11 @@
             const workTimeResponse = await fetch('/api/AttendanceSettingApi/GetChamCongGioRaVao');
             const workTimeResult = await workTimeResponse.json();
             workTimeConfig = workTimeResult.find(r => r.kichHoat);
+            const scheduleResponse = await fetch('/api/AttendanceSettingApi/GetLichLamViec');
+            if (scheduleResponse.ok) {
+                const schedules = await scheduleResponse.json();
+                weeklySchedule = schedules.find(schedule => schedule.kichHoat)?.tenLich;
+            }
             if (!workTimeConfig) {
                 Swal.fire({
                     icon: 'warning',
@@ -457,7 +465,7 @@
             const isHoliday = holiday && holiday.trangThai === 'NL4';
             const currentDate = new Date(date);
             const isWeekend = currentDate.getDay() === 0 || currentDate.getDay() === 6;
-            const isWeekday = currentDate.getDay() >= 1 && currentDate.getDay() <= 5;
+            const isWeekday = isScheduledWorkday(currentDate.getDay());
 
             let rowClass = '';
             if (attendanceStatusData[date]) {
@@ -511,7 +519,7 @@
 
         // Subtract 1 hour for lunch break if the work period overlaps with 12:00-13:00
         if (start < lunchEnd && end > lunchStart) {
-            hours -= 1;
+            hours -= (Math.min(end, lunchEnd) - Math.max(start, lunchStart)) / 3600000;
         }
 
         return Math.max(0, parseFloat(hours.toFixed(2)));
@@ -529,7 +537,7 @@
 
         // Subtract 1 hour for lunch break if the overtime period overlaps with 12:00-13:00
         if (start < lunchEnd && end > lunchStart) {
-            hours -= 1;
+            hours -= (Math.min(end, lunchEnd) - Math.max(start, lunchStart)) / 3600000;
         }
 
         return Math.max(0, parseFloat(hours.toFixed(2)));
@@ -876,7 +884,7 @@
         const validAttendance = selectedDates
             .filter(date => {
                 const dayOfWeek = new Date(date.date).getDay();
-                const isWeekday = dayOfWeek >= 1 && dayOfWeek <= 5;
+                const isWeekday = isScheduledWorkday(dayOfWeek);
                 const isHoliday = holidayData[date.date] && holidayData[date.date].trangThai === 'NL4';
                 return isWeekday && !isHoliday && date.checkIn && date.checkOut;
             })
@@ -1106,7 +1114,7 @@
             const dayOfWeek = currentDate.getDay();
             const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
             const isHoliday = holidayData[date] && holidayData[date].trangThai === 'NL4';
-            const isWeekday = dayOfWeek >= 1 && dayOfWeek <= 5;
+            const isWeekday = isScheduledWorkday(dayOfWeek);
 
             let updatedData = { ...workScheduleData[date] };
 

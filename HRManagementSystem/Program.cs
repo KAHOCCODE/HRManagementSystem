@@ -1,5 +1,7 @@
 ﻿using HR_KD.Authorization;
 using HR_KD.Data;
+using HR_KD.Helpers;
+using System.Security.Claims;
 using HR_KD.Services;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
@@ -42,6 +44,22 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
         options.Cookie.SecurePolicy = cookieSecurity;
         options.LoginPath = "/Account/Login";
         options.AccessDeniedPath = "/Account/AccessDenied";
+        options.Events.OnValidatePrincipal = async context =>
+        {
+            var principal = context.Principal;
+            var username = principal?.Identity?.Name;
+            var db = context.HttpContext.RequestServices.GetRequiredService<HrDbContext>();
+            var account = await db.TaiKhoans.AsNoTracking().Include(x => x.TaiKhoanQuyenHans)
+                .SingleOrDefaultAsync(x => x.Username == username, context.HttpContext.RequestAborted);
+            if (account == null || principal == null
+                || principal.FindFirstValue("hr:session") != PasswordHelper.SessionStamp(account.PasswordHash)
+                || !account.TaiKhoanQuyenHans.Select(x => x.MaQuyenHan).ToHashSet()
+                    .SetEquals(principal.FindAll(ClaimTypes.Role).Select(x => x.Value)))
+            {
+                context.RejectPrincipal();
+                await context.HttpContext.SignOutAsync(context.Scheme.Name);
+            }
+        };
     });
 
 builder.Services.AddAuthorization(options =>
@@ -122,7 +140,12 @@ app.UseRouting();
 app.UseAuthentication();
 app.Use(async (context, next) =>
 {
-    if (context.Request.Path.StartsWithSegments("/Uploads") && context.User.Identity?.IsAuthenticated != true)
+    if (context.Request.Path.StartsWithSegments("/Uploads") && context.GetEndpoint() == null)
+    {
+        context.Response.StatusCode = StatusCodes.Status404NotFound;
+        return;
+    }
+    if (context.Request.Path.StartsWithSegments("/avatars") && context.User.Identity?.IsAuthenticated != true)
     {
         await context.ChallengeAsync();
         return;

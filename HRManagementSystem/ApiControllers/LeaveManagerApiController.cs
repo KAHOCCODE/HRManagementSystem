@@ -1,4 +1,5 @@
-﻿using HR_KD.Data;
+﻿using Microsoft.AspNetCore.Authorization;
+using HR_KD.Data;
 using HR_KD.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -13,6 +14,7 @@ using System.Threading.Tasks;
 
 namespace HR_KD.ApiControllers
 {
+    [Authorize(Roles = "DIRECTOR,EMPLOYEE_MANAGER")]
     public class LeaveManagerApiController : Controller
     {
         private readonly HrDbContext _context;
@@ -32,6 +34,17 @@ namespace HR_KD.ApiControllers
             return int.TryParse(maNvClaim, out int maNv) ? maNv : null;
         }
 
+        private IQueryable<NgayNghi> ReviewableRequests()
+        {
+            if (User.IsInRole("DIRECTOR"))
+                return _context.NgayNghis;
+
+            var reviewerId = GetMaNvFromClaims();
+            return _context.NgayNghis.Where(request => _context.NhanViens.Any(reviewer =>
+                reviewer.MaNv == reviewerId && reviewer.MaPhongBan == request.MaNvNavigation.MaPhongBan
+                && reviewer.MaChucVu < request.MaNvNavigation.MaChucVu));
+        }
+
         [HttpGet]
         [Route("LeaveManager/GetAll")]
         public async Task<IActionResult> GetAllLeaveRequests()
@@ -39,7 +52,7 @@ namespace HR_KD.ApiControllers
             try
             {
                 var data = await (
-                    from nn in _context.NgayNghis
+                    from nn in ReviewableRequests()
                     join nv in _context.NhanViens on nn.MaNv equals nv.MaNv
                     join sdp in _context.SoDuPheps
                         on new { nn.MaNv, Nam = nn.NgayNghi1.Year } equals new { sdp.MaNv, sdp.Nam } into sdpJoin
@@ -147,7 +160,7 @@ namespace HR_KD.ApiControllers
                 return Unauthorized(new { success = false, message = "Chưa xác thực người dùng." });
             }
 
-            var ngayNghi = await _context.NgayNghis.FindAsync(request.MaNgayNghi);
+            var ngayNghi = await ReviewableRequests().FirstOrDefaultAsync(x => x.MaNgayNghi == request.MaNgayNghi);
             if (ngayNghi == null)
             {
                 return NotFound(new { success = false, message = "Không tìm thấy bản ghi ngày nghỉ." });
@@ -407,13 +420,13 @@ namespace HR_KD.ApiControllers
             var currentMonth = today.Month;
             var currentYear = today.Year;
 
-            var pendingCount = await _context.NgayNghis
+            var pendingCount = await ReviewableRequests()
                 .Where(nn => nn.MaTrangThai == "NN1")
                 .Select(nn => nn.MaDon)
                 .Distinct()
                 .CountAsync();
 
-            var approvedTodayCount = await _context.NgayNghis
+            var approvedTodayCount = await ReviewableRequests()
                 .Where(nn =>
                     (nn.MaTrangThai == "NN2" || nn.MaTrangThai == "NN5") &&
                     nn.NgayLamDon.Date == today)
@@ -421,7 +434,7 @@ namespace HR_KD.ApiControllers
                 .Distinct()
                 .CountAsync();
 
-            var currentMonthCount = await _context.NgayNghis
+            var currentMonthCount = await ReviewableRequests()
                 .Where(nn => nn.NgayNghi1.Month == currentMonth && nn.NgayNghi1.Year == currentYear)
                 .Select(nn => nn.MaDon)
                 .Distinct()
@@ -448,6 +461,14 @@ namespace HR_KD.ApiControllers
             {
                 return Unauthorized(new { success = false, message = "Chưa xác thực người dùng." });
             }
+
+            if (request.MaNgayNghiList == null || request.MaNgayNghiList.Count == 0)
+                return BadRequest(new { message = "Chọn ít nhất một đơn nghỉ." });
+
+            var reviewableCount = await ReviewableRequests()
+                .CountAsync(x => request.MaNgayNghiList.Contains(x.MaNgayNghi));
+            if (reviewableCount != request.MaNgayNghiList.Distinct().Count())
+                return Forbid();
 
             var nguoiDuyet = await _context.NhanViens.FirstOrDefaultAsync(nv => nv.MaNv == currentMaNv);
             if (nguoiDuyet == null)

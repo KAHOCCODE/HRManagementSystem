@@ -18,11 +18,11 @@ namespace HR_KD.Controllers.ApiControllers
         private readonly ILogger<SalaryApiController> _logger;
         private readonly PayrollCalculator _payrollCalculator;
 
-        public SalaryApiController(HrDbContext context, ILogger<SalaryApiController> logger)
+        public SalaryApiController(HrDbContext context, ILogger<SalaryApiController> logger, PayrollCalculator payrollCalculator)
         {
             _context = context;
             _logger = logger;
-            _payrollCalculator = new PayrollCalculator(context);
+            _payrollCalculator = payrollCalculator;
         }
 
         // GET: api/SalaryApi/{maNv}
@@ -91,32 +91,15 @@ namespace HR_KD.Controllers.ApiControllers
                     return BadRequest("Nhân viên đã có thông tin lương.");
                 }
 
-                // Lấy thông tin mức lương tối thiểu vùng đang hoạt động
-                var activeMinimumWage = await _context.MucLuongToiThieuVungs
-                    .Where(m => m.IsActive)
-                    .FirstOrDefaultAsync();
-
-                if (activeMinimumWage == null)
-                {
-                    return BadRequest("Không tìm thấy mức lương tối thiểu vùng đang hoạt động.");
-                }
-
-                // Kiểm tra lương cơ bản so với mức lương tối thiểu
-                var minimumWage = activeMinimumWage.MucLuongToiThieuThang;
+                var minimumWage = await _payrollCalculator.ResolveMonthlyMinimumWage(salaryDTO.MaNv, salaryDTO.NgayApDung);
+                if (minimumWage == null)
+                    return BadRequest("Cần xác định vùng lương của nhân viên tại ngày áp dụng.");
                 if (salaryDTO.LuongCoBan < minimumWage)
-                {
                     return BadRequest($"Lương cơ bản phải lớn hơn hoặc bằng mức lương tối thiểu vùng: {minimumWage:N0} VNĐ.");
-                }
-
-                // Kiểm tra tổng lương đóng bảo hiểm
-                var luongDongBaoHiem = salaryDTO.LuongCoBan + (salaryDTO.PhuCapCoDinh ?? 0) + (salaryDTO.ThuongCoDinh ?? 0);
-                if (luongDongBaoHiem < minimumWage)
-                {
-                    return BadRequest($"Tổng lương đóng bảo hiểm (lương cơ bản + phụ cấp + thưởng) phải lớn hơn hoặc bằng mức lương tối thiểu vùng: {minimumWage:N0} VNĐ.");
-                }
 
                 // Tính toán các khoản bảo hiểm bằng PayrollCalculator
                 (decimal bhxh, decimal bhyt, decimal bhtn, string errorMessage) = await _payrollCalculator.CalculateInsurance(
+                    salaryDTO.MaNv, salaryDTO.NgayApDung,
                     salaryDTO.LuongCoBan,
                     salaryDTO.PhuCapCoDinh,
                     salaryDTO.ThuongCoDinh
@@ -203,32 +186,15 @@ namespace HR_KD.Controllers.ApiControllers
                     return BadRequest("Đã tồn tại thông tin lương với ngày áp dụng mới hơn hoặc bằng ngày này.");
                 }
 
-                // Lấy thông tin mức lương tối thiểu vùng đang hoạt động
-                var activeMinimumWage = await _context.MucLuongToiThieuVungs
-                    .Where(m => m.IsActive)
-                    .FirstOrDefaultAsync();
-
-                if (activeMinimumWage == null)
-                {
-                    return BadRequest("Không tìm thấy mức lương tối thiểu vùng đang hoạt động.");
-                }
-
-                // Kiểm tra lương cơ bản so với mức lương tối thiểu
-                var minimumWage = activeMinimumWage.MucLuongToiThieuThang;
+                var minimumWage = await _payrollCalculator.ResolveMonthlyMinimumWage(salaryDTO.MaNv, salaryDTO.NgayApDung);
+                if (minimumWage == null)
+                    return BadRequest("Cần xác định vùng lương của nhân viên tại ngày áp dụng.");
                 if (salaryDTO.LuongCoBan < minimumWage)
-                {
                     return BadRequest($"Lương cơ bản phải lớn hơn hoặc bằng mức lương tối thiểu vùng: {minimumWage:N0} VNĐ.");
-                }
-
-                // Kiểm tra tổng lương đóng bảo hiểm
-                var luongDongBaoHiem = salaryDTO.LuongCoBan + (salaryDTO.PhuCapCoDinh ?? 0) + (salaryDTO.ThuongCoDinh ?? 0);
-                if (luongDongBaoHiem < minimumWage)
-                {
-                    return BadRequest($"Tổng lương đóng bảo hiểm (lương cơ bản + phụ cấp + thưởng) phải lớn hơn hoặc bằng mức lương tối thiểu vùng: {minimumWage:N0} VNĐ.");
-                }
 
                 // Tính toán các khoản bảo hiểm bằng PayrollCalculator
                 (decimal bhxh, decimal bhyt, decimal bhtn, string errorMessage) = await _payrollCalculator.CalculateInsurance(
+                    salaryDTO.MaNv, salaryDTO.NgayApDung,
                     salaryDTO.LuongCoBan,
                     salaryDTO.PhuCapCoDinh,
                     salaryDTO.ThuongCoDinh
@@ -283,6 +249,7 @@ namespace HR_KD.Controllers.ApiControllers
                 }
 
                 var (bhxh, bhyt, bhtn, errorMessage) = await _payrollCalculator.CalculateInsurance(
+                    input.MaNv, input.NgayApDung,
                     input.LuongCoBan,
                     input.PhuCapCoDinh,
                     input.ThuongCoDinh
@@ -304,6 +271,7 @@ namespace HR_KD.Controllers.ApiControllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Lỗi khi tính toán bảo hiểm: LuongCoBan={LuongCoBan}, PhuCapCoDinh={PhuCapCoDinh}, ThuongCoDinh={ThuongCoDinh}",
+                    input.MaNv, input.NgayApDung,
                     input.LuongCoBan, input.PhuCapCoDinh, input.ThuongCoDinh);
                 return StatusCode(500, "Có lỗi xảy ra khi tính toán bảo hiểm.");
             }
@@ -312,6 +280,8 @@ namespace HR_KD.Controllers.ApiControllers
 
     public class InsuranceInputDTO
     {
+        public int MaNv { get; set; }
+        public DateTime NgayApDung { get; set; }
         public decimal LuongCoBan { get; set; }
         public decimal? PhuCapCoDinh { get; set; }
         public decimal? ThuongCoDinh { get; set; }

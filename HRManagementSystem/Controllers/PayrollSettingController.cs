@@ -6,6 +6,8 @@ namespace HR_KD.Controllers
     [Authorize(Roles = "DIRECTOR")]
     public class PayrollSettingController : Controller
     {
+        public IActionResult StatutoryRates() => View();
+
         // GET: /Setting/Index
         public IActionResult Index()
         {

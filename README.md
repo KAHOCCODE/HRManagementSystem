@@ -474,3 +474,15 @@ Deployment: Local Development
 This project was created for educational and development purposes.
 
 Additional security review, automated testing, monitoring, and production configuration are required before using the application in a production environment.
+
+## HR controls review
+
+Use a fresh demo database when verifying this branch so the demo initializer can add a working schedule and example overtime rates.
+
+- In **Cài Đặt → Cài đặt cấu hình lương**, open the statutory wage reference for 2026 and 2027. Set `HR__WorkRegionsByDepartment__<department-id>` to the verified region (1–4) when everyone in that department works in the same region. Departments spanning multiple worksites still need per-worksite assignments.
+- Salary setup uses the effective wage, reference amount and insurance rate records for the selected date. For income with allowances or bonuses, configure `HR__InsurableAdditionsByEmployee__<employee-id>__<yyyy-MM>` after classifying the amounts for that month. The current payroll calculation still uses stored insurance deductions. Reconciliation and rules for partial months and eligibility are required before production.
+- New and imported accounts receive random activation passwords by email. **Đặt mật khẩu lần đầu** accepts an unexpired activation password and replaces it. Directors can reissue activation in **Cài Đặt**. Configure SMTP before onboarding. Legacy accounts using the shared default password must be reissued.
+- The revised attendance submission handles daytime entries with the existing noon break and a standard limit of 200 annual overtime hours. Night, overnight and exceptional 300-hour schedules require their own calculation and approval flow.
+- Resident income tax uses the 2026 statutory brackets and deductions for 2026–2027. Part-year residency, tax exemptions for eligible overtime and night work, dependent eligibility by date and year-end settlement remain to be implemented.
+- Annual leave uses actual work anniversaries when calculating seniority. Rules for partial years, statutory job categories, anniversary updates during a year, carry-over and termination settlement still require implementation.
+- Before production, add verified company and worksite records, full record-level access controls and configuration audit history, payroll closing and adjustments, and durable encrypted storage with backup and restore. Validate against a de-identified payroll period with the company's HR and accounting team.

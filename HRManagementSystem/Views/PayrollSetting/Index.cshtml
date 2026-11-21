@@ -39,6 +39,7 @@
             <!-- Tab Content -->
             <div id="MucLuongToiThieuVung" class="tabcontent p-4 sm:p-6">
                 <h3 class="text-lg font-semibold text-gray-800 mb-4">Mức Lương Tối Thiểu Vùng</h3>
+                <p><a asp-action="StatutoryRates">Tra mức theo văn bản năm 2026 và 2027</a></p>
                 <div class="overflow-x-auto">
                     <table id="mucLuongToiThieuVungTable" class="min-w-full bg-white border border-gray-200 rounded-lg">
                         <thead class="bg-gray-50">
@@ -580,10 +581,21 @@
     </div>
 </div>
 
+<div id="configuration-security" hidden>@Html.AntiForgeryToken()</div>
+
 @section Scripts {
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script>
+        $.ajaxSetup({
+            beforeSend(xhr, settings) {
+                if (!settings.crossDomain && !/^(GET|HEAD|OPTIONS)$/i.test(settings.type)) {
+                    xhr.setRequestHeader('RequestVerificationToken',
+                        $('#configuration-security input[name="__RequestVerificationToken"]').val());
+                }
+            }
+        });
+
         function openTab(evt, tabName) {
             var i, tabcontent, tablinks;
             tabcontent = document.getElementsByClassName("tabcontent");

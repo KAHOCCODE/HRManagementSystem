@@ -41,6 +41,11 @@
                             </div>
                         }
                         
+                        @if (TempData["Success"] is string success)
+                        {
+                            <div class="alert alert-success" role="status">@success</div>
+                        }
+                        <p><a asp-action="Activate">Đặt mật khẩu lần đầu</a></p>
                         <form asp-action="Login" method="post">
                             <div class="input-group mb-4">
                                 <span class="input-group-text">

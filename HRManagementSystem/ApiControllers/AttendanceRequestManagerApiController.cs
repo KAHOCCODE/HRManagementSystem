@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using HR_KD.Data;
 using System.Linq;
 using HR_KD.DTOs;
@@ -16,6 +17,7 @@ using SmtpClient = MailKit.Net.Smtp.SmtpClient;
 
 [Route("api/AttendanceRequestManager")]
 [ApiController]
+[Authorize(Roles = "DIRECTOR,EMPLOYEE_MANAGER")]
 public class AttendanceRequestManagerApiController : ControllerBase
 {
     private readonly HrDbContext _context;

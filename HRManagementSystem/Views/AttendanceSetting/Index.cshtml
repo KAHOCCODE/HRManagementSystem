@@ -298,11 +298,22 @@
         </div>
     </div>
 
+<div id="configuration-security" hidden>@Html.AntiForgeryToken()</div>
+
 @section Scripts {
                     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
                     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
                     <script src="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.js"></script>
                     <script>
+        $.ajaxSetup({
+            beforeSend(xhr, settings) {
+                if (!settings.crossDomain && !/^(GET|HEAD|OPTIONS)$/i.test(settings.type)) {
+                    xhr.setRequestHeader('RequestVerificationToken',
+                        $('#configuration-security input[name="__RequestVerificationToken"]').val());
+                }
+            }
+        });
+
                         let schedules = [];
                         let workHoursData = Array(12).fill(0); // To store calculated work hours for saving
 

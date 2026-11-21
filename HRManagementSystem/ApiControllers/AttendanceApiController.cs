@@ -1,5 +1,7 @@
 ﻿using HR_KD.Data;
 using HR_KD.DTOs;
+using HR_KD.Common;
+using System.Data;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System;
@@ -68,139 +70,138 @@ namespace HR_KD.ApiControllers
                 return BadRequest(new { success = false, message = "Dữ liệu chấm công không hợp lệ." });
             }
 
-            try
+            var employeeId = maNv.Value;
+            await using var transaction = await _context.Database.BeginTransactionAsync(IsolationLevel.Serializable);
+            var hours = await _context.ChamCongGioRaVaos.Where(x => x.KichHoat)
+                .OrderByDescending(x => x.Id).Select(x => x.TongGio).FirstOrDefaultAsync();
+            if (hours <= 0 || hours > 10)
+                return BadRequest(new { message = "Cần thiết lập giờ công chuẩn hợp lệ trước khi chấm công." });
+
+            var activeSchedule = await _context.LichLamViecs.Where(x => x.KichHoat)
+                .OrderByDescending(x => x.Id).Select(x => x.TenLich).FirstOrDefaultAsync();
+            if (activeSchedule is not ("T2 - T6" or "T2 - Nửa T7" or "T2 - T7"))
+                return BadRequest(new { message = "Cần kích hoạt lịch làm việc trước khi chấm công." });
+
+            var regularEntries = new List<LichSuChamCong>();
+            var extraEntries = new List<TangCa>();
+            foreach (var entry in data.attendance ?? [])
             {
-                // Attendance processing logic
-                if (data.attendance != null && data.attendance.Any())
+                if (!DateOnly.TryParse(entry.NgayLamViec, out var date)
+                    || !TimeOnly.TryParse(entry.GioVao, out var from)
+                    || !TimeOnly.TryParse(entry.GioRa, out var to)
+                    || !TryGetDaytimeHours(from, to, out var duration))
+                    return BadRequest(new { message = "Giờ công không hợp lệ hoặc cần xử lý riêng cho ca đêm, ca qua ngày." });
+
+                var dailyLimit = ScheduledHours(date, activeSchedule, hours);
+                if (duration > dailyLimit || await IsHoliday(date))
+                    return BadRequest(new { message = $"Giờ công ngày {date:dd/MM/yyyy} vượt lịch làm hoặc rơi vào ngày lễ." });
+
+                if (regularEntries.Any(x => x.Ngay == date)
+                    || await _context.LichSuChamCongs.AnyAsync(x => x.MaNv == employeeId && x.Ngay == date))
+                    return BadRequest(new { message = $"Đã có bản ghi chấm công ngày {date:dd/MM/yyyy}." });
+
+                if (await _context.NgayNghis.AnyAsync(x => x.MaNv == employeeId && x.NgayNghi1 == date
+                    && (x.MaTrangThai == LeaveStatus.Approved || x.MaTrangThai == "NN5")))
+                    return BadRequest(new { message = $"Ngày {date:dd/MM/yyyy} đã có đơn nghỉ được duyệt." });
+
+                var (start, end) = GetWeekRange(date);
+                var existingHours = await _context.LichSuChamCongs
+                    .Where(x => x.MaNv == employeeId && x.Ngay >= start && x.Ngay <= end
+                        && x.TrangThai != AttendanceHistoryStatus.Rejected)
+                    .SumAsync(x => x.TongGio ?? 0);
+                var pendingHours = regularEntries.Where(x => x.Ngay >= start && x.Ngay <= end)
+                    .Sum(x => x.TongGio ?? 0);
+                if (existingHours + pendingHours + duration > 48)
+                    return BadRequest(new { message = "Tổng giờ làm việc bình thường vượt 48 giờ trong tuần." });
+
+                regularEntries.Add(new LichSuChamCong
                 {
-                    foreach (var entry in data.attendance)
-                    {
-                        if (!DateOnly.TryParse(entry.NgayLamViec, out var ngayLamViec))
-                        {
-                            return BadRequest(new { success = false, message = $"Ngày làm việc không hợp lệ: {entry.NgayLamViec}" });
-                        }
-
-                        // Check if employee already submitted attendance for this date
-                        bool daChamCong = await _context.LichSuChamCongs.AnyAsync(c => c.MaNv == maNv.Value && c.Ngay == ngayLamViec);
-                        if (daChamCong)
-                        {
-                            return BadRequest(new { success = false, message = $"Nhân viên {maNv} đã chấm công ngày {entry.NgayLamViec}." });
-                        }
-
-                        // Check if employee has a leave record for this date
-                        var leaveRecord = await _context.NgayNghis
-                            .FirstOrDefaultAsync(c => c.MaNv == maNv.Value && c.NgayNghi1 == ngayLamViec);
-                        if (leaveRecord != null)
-                        {
-                            // Prevent attendance if leave status is not NN4
-                            if (leaveRecord.MaTrangThai != "NN3")
-                            {
-                                return BadRequest(new
-                                {
-                                    success = false,
-                                    message = $"Nhân viên {maNv} có ngày nghỉ với trạng thái {leaveRecord.MaTrangThai} vào ngày {entry.NgayLamViec}, không thể chấm công.",
-                                    error = "Employee on leave with non-NN3 status"
-                                });
-                            }
-                        }
-
-                        // Check weekly working hours limit
-                        var (start, end) = GetWeekRange(ngayLamViec);
-                        var weeklyHours = await _context.LichSuChamCongs
-                            .Where(c => c.MaNv == maNv.Value && c.Ngay >= start && c.Ngay <= end)
-                            .SumAsync(c => c.TongGio ?? 0);
-                        if (weeklyHours >= 40)
-                        {
-                            return BadRequest(new { success = false, message = $"Đã đủ 40 giờ làm việc trong tuần bắt đầu từ {start}, không thể chấm công thêm." });
-                        }
-
-                        var chamCong = new LichSuChamCong
-                        {
-                            MaNv = maNv.Value,
-                            Ngay = ngayLamViec,
-                            GioVao = TimeOnly.TryParse(entry.GioVao, out var parsedGioVao) ? parsedGioVao : null,
-                            GioRa = TimeOnly.TryParse(entry.GioRa, out var parsedGioRa) ? parsedGioRa : null,
-                            TongGio = entry.TongGio ?? 0,
-                            TrangThai = entry.TrangThai,
-                            GhiChu = entry.GhiChu
-                        };
-                        _context.LichSuChamCongs.Add(chamCong);
-                    }
-                    await _context.SaveChangesAsync();
-                }
-
-                // Overtime processing logic (unchanged)
-                if (data.overtime != null && data.overtime.Any())
-                {
-                    foreach (var entry in data.overtime)
-                    {
-                        if (!DateOnly.TryParse(entry.NgayTangCa, out var ngayTangCa))
-                        {
-                            return BadRequest(new { success = false, message = $"Ngày tăng ca không hợp lệ: {entry.NgayTangCa}" });
-                        }
-
-                        if (!TimeOnly.TryParse(entry.GioVaoTangCa, out var gioVaoTangCa) || !TimeOnly.TryParse(entry.GioRaTangCa, out var gioRaTangCa))
-                        {
-                            return BadRequest(new { success = false, message = $"Giờ vào hoặc giờ ra tăng ca không hợp lệ cho ngày {entry.NgayTangCa}." });
-                        }
-
-                        var (start, end) = GetWeekRange(ngayTangCa);
-                        var weeklyOvertimeHours = await _context.TangCas
-                            .Where(c => c.MaNv == maNv.Value && c.NgayTangCa >= start && c.NgayTangCa <= end)
-                            .SumAsync(c => c.SoGioTangCa);
-                        if (weeklyOvertimeHours >= 12)
-                        {
-                            return BadRequest(new { success = false, message = $"Đã đủ 12 giờ tăng ca trong tuần bắt đầu từ {start}, không thể tăng ca thêm." });
-                        }
-
-                        var lamBuRecords = await _context.LamBus
-                            .Where(lb => lb.MaNV == maNv.Value && lb.NgayLamViec == ngayTangCa && lb.GioVao.HasValue && lb.GioRa.HasValue)
-                            .ToListAsync();
-
-                        foreach (var lamBu in lamBuRecords)
-                        {
-                            var gioVaoLamBu = lamBu.GioVao.Value;
-                            var gioRaLamBu = lamBu.GioRa.Value;
-
-                            if (gioVaoTangCa < gioRaLamBu && gioRaTangCa > gioVaoLamBu)
-                            {
-                                return BadRequest(new
-                                {
-                                    success = false,
-                                    message = $"Giờ tăng ca từ {gioVaoTangCa:HH:mm} đến {gioRaTangCa:HH:mm} trùng với giờ làm bù từ {gioVaoLamBu:HH:mm} đến {gioRaLamBu:HH:mm} vào ngày {ngayTangCa}."
-                                });
-                            }
-                        }
-
-                        var tangCa = new TangCa
-                        {
-                            MaNv = maNv.Value,
-                            NgayTangCa = ngayTangCa,
-                            SoGioTangCa = entry.SoGioTangCa,
-                            TyLeTangCa = (decimal)(entry.TiLeTangCa / 100.0),
-                            GhiChu = entry.GhiChu,
-                            TrangThai = "TC1",
-                            GioVao = gioVaoTangCa,
-                            GioRa = gioRaTangCa,
-                            MaNvDuyet = 0
-                        };
-                        _context.TangCas.Add(tangCa);
-                    }
-                    await _context.SaveChangesAsync();
-                }
-
-                return Ok(new { success = true, message = "Chấm công thành công." });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new
-                {
-                    success = false,
-                    message = "Lỗi hệ thống.",
-                    error = ex.Message,
-                    stackTrace = ex.StackTrace
+                    MaNv = employeeId, Ngay = date, GioVao = from, GioRa = to,
+                    TongGio = duration, TrangThai = AttendanceHistoryStatus.Pending, GhiChu = entry.GhiChu
                 });
             }
+
+            foreach (var entry in data.overtime ?? [])
+            {
+                if (!DateOnly.TryParse(entry.NgayTangCa, out var date) || date.Year >= 9999
+                    || !TimeOnly.TryParse(entry.GioVaoTangCa, out var from)
+                    || !TimeOnly.TryParse(entry.GioRaTangCa, out var to)
+                    || !TryGetDaytimeHours(from, to, out var duration))
+                    return BadRequest(new { message = "Giờ tăng ca không hợp lệ hoặc cần xử lý riêng cho ca đêm, ca qua ngày." });
+
+                var dailyHours = ScheduledHours(date, activeSchedule, hours);
+                var isHoliday = await IsHoliday(date);
+                var minimumPercent = isHoliday ? 300 : dailyHours == 0 ? 200 : 150;
+                var rate = await _context.TiLeTangCas.Where(x => x.KichHoat && x.TiLe == entry.TiLeTangCa)
+                    .Select(x => (double?)x.TiLe).FirstOrDefaultAsync();
+                if (rate == null || rate < minimumPercent)
+                    return BadRequest(new { message = $"Chọn tỷ lệ đã kích hoạt từ {minimumPercent}% cho ngày {date:dd/MM/yyyy}." });
+
+                var yearStart = new DateOnly(date.Year, 1, 1);
+                var yearEnd = yearStart.AddYears(1);
+                var existing = await _context.TangCas.Where(x => x.MaNv == employeeId && x.NgayTangCa >= yearStart
+                    && x.NgayTangCa < yearEnd && x.TrangThai != OvertimeStatus.Rejected).ToListAsync();
+                var counted = existing.Concat(extraEntries.Where(x => x.NgayTangCa.Year == date.Year)).ToList();
+                var sameDay = counted.Where(x => x.NgayTangCa == date).ToList();
+                if (sameDay.Any(x => x.GioVao < to && x.GioRa > from)
+                    || regularEntries.Any(x => x.Ngay == date && x.GioVao < to && x.GioRa > from)
+                    || await _context.LichSuChamCongs.AnyAsync(x => x.MaNv == employeeId && x.Ngay == date
+                        && x.TrangThai != AttendanceHistoryStatus.Rejected && x.GioVao < to && x.GioRa > from)
+                    || await _context.LamBus.AnyAsync(x => x.MaNV == employeeId && x.NgayLamViec == date
+                        && x.GioVao < to && x.GioRa > from))
+                    return BadRequest(new { message = $"Giờ tăng ca ngày {date:dd/MM/yyyy} bị trùng với bản ghi khác." });
+
+                var maxDaily = isHoliday || dailyHours == 0 ? 12 : Math.Min(dailyHours / 2, 12 - dailyHours);
+                if (sameDay.Sum(x => x.SoGioTangCa) + duration > maxDaily
+                    || counted.Where(x => x.NgayTangCa.Month == date.Month).Sum(x => x.SoGioTangCa) + duration > 40
+                    || counted.Sum(x => x.SoGioTangCa) + duration > 200)
+                    return BadRequest(new { message = "Số giờ tăng ca vượt giới hạn ngày, tháng hoặc năm đang áp dụng." });
+
+                extraEntries.Add(new TangCa
+                {
+                    MaNv = employeeId, NgayTangCa = date, SoGioTangCa = duration,
+                    TyLeTangCa = (decimal)rate.Value / 100, GioVao = from, GioRa = to,
+                    TrangThai = OvertimeStatus.Pending, GhiChu = entry.GhiChu
+                });
+            }
+
+            _context.LichSuChamCongs.AddRange(regularEntries);
+            _context.TangCas.AddRange(extraEntries);
+            await _context.SaveChangesAsync();
+            await transaction.CommitAsync();
+            return Ok(new { success = true, message = "Đã lưu chấm công." });
+        }
+
+        private static decimal ScheduledHours(DateOnly date, string schedule, decimal fullDay) =>
+            date.DayOfWeek switch
+            {
+                DayOfWeek.Sunday => 0,
+                DayOfWeek.Saturday when schedule == "T2 - T6" => 0,
+                DayOfWeek.Saturday when schedule == "T2 - Nửa T7" => fullDay / 2,
+                _ => fullDay
+            };
+
+        private static bool TryGetDaytimeHours(TimeOnly from, TimeOnly to, out decimal duration)
+        {
+            duration = 0;
+            if (from < new TimeOnly(6, 0) || to > new TimeOnly(22, 0) || to <= from)
+                return false;
+
+            // The existing web form uses a noon break. Deduct only the portion inside this entry.
+            var breakStart = new TimeOnly(12, 0);
+            var breakEnd = new TimeOnly(13, 0);
+            var overlapStart = from > breakStart ? from : breakStart;
+            var overlapEnd = to < breakEnd ? to : breakEnd;
+            var overlap = overlapEnd > overlapStart ? overlapEnd - overlapStart : TimeSpan.Zero;
+            duration = Math.Round((decimal)((to - from) - overlap).TotalHours, 2);
+            return duration > 0;
+        }
+
+        private async Task<bool> IsHoliday(DateOnly date)
+        {
+            var holidays = await _context.NgayLes.Where(x => x.NgayLe1 <= date
+                && (x.TrangThai == "NL4" || x.TrangThai == "NL5")).ToListAsync();
+            return holidays.Any(x => date.DayNumber - x.NgayLe1.DayNumber < (x.SoNgayNghi ?? 1));
         }
 
         [HttpGet]

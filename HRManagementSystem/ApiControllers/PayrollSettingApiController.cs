@@ -13,6 +13,8 @@ namespace HR_KD.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize(Roles = "DIRECTOR")]
+    [AutoValidateAntiforgeryToken]
     public class PayrollSettingApiController : ControllerBase
     {
         private readonly HrDbContext _context;
@@ -44,17 +46,11 @@ namespace HR_KD.Controllers
         [HttpPost("muc-luong-toi-thieu-vung")]
         public async Task<ActionResult<MucLuongToiThieuVung>> CreateMucLuongToiThieuVung(MucLuongToiThieuVung mucLuong)
         {
-            if (mucLuong.IsActive)
-            {
-                var activeRegions = await _context.MucLuongToiThieuVungs
-                    .Where(m => m.IsActive)
-                    .ToListAsync();
-                foreach (var region in activeRegions)
-                {
-                    region.IsActive = false;
-                    _context.Entry(region).State = EntityState.Modified;
-                }
-            }
+            if (mucLuong.VungLuong is < 1 or > 4 || mucLuong.MucLuongToiThieuThang <= 0 || mucLuong.MucLuongToiThieuGio <= 0)
+                return BadRequest("Vùng lương và mức lương tối thiểu không hợp lệ.");
+
+            if (await _context.MucLuongToiThieuVungs.AnyAsync(x => x.VungLuong == mucLuong.VungLuong))
+                return Conflict("Vùng lương đã tồn tại.");
 
             _context.MucLuongToiThieuVungs.Add(mucLuong);
             await _context.SaveChangesAsync();
@@ -69,17 +65,8 @@ namespace HR_KD.Controllers
                 return BadRequest();
             }
 
-            if (mucLuong.IsActive)
-            {
-                var activeRegions = await _context.MucLuongToiThieuVungs
-                    .Where(m => m.IsActive && m.VungLuong != id)
-                    .ToListAsync();
-                foreach (var region in activeRegions)
-                {
-                    region.IsActive = false;
-                    _context.Entry(region).State = EntityState.Modified;
-                }
-            }
+            if (mucLuong.MucLuongToiThieuThang <= 0 || mucLuong.MucLuongToiThieuGio <= 0)
+                return BadRequest("Mức lương tối thiểu phải lớn hơn 0.");
 
             _context.Entry(mucLuong).State = EntityState.Modified;
             try

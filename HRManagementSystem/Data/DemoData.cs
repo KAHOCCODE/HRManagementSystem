@@ -108,6 +108,19 @@ internal static class DemoData
             }
         }
 
+        db.ChamCongGioRaVaos.Add(new ChamCongGioRaVao
+        {
+            GioVao = new TimeOnly(8, 0), GioRa = new TimeOnly(17, 0), TongGio = 8, KichHoat = true
+        });
+        db.LichLamViecs.AddRange(
+            new LichLamViec { TenLich = "T2 - T6", Nam = today.Year, KichHoat = true },
+            new LichLamViec { TenLich = "T2 - Nửa T7", Nam = today.Year },
+            new LichLamViec { TenLich = "T2 - T7", Nam = today.Year });
+        db.TiLeTangCas.AddRange(
+            new TiLeTangCa { TenTiLeTangCa = "Ngày thường", TiLe = 150, KichHoat = true },
+            new TiLeTangCa { TenTiLeTangCa = "Ngày nghỉ hằng tuần", TiLe = 200, KichHoat = true },
+            new TiLeTangCa { TenTiLeTangCa = "Ngày lễ", TiLe = 300, KichHoat = true });
+
         db.TrangThais.AddRange(
             new TrangThai { MaTrangThai = AttendanceStatus.Pending, TenTrangThai = "Chờ duyệt" },
             new TrangThai { MaTrangThai = AttendanceStatus.Approved, TenTrangThai = "Đã duyệt" },

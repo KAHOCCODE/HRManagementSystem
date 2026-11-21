@@ -104,21 +104,10 @@ namespace HR_KD.Services
                     }
                 }
 
-                // Kiểm tra và tính thâm niên
-                int? thamnien = null;
-                if (nv.NgayVaoLam.HasValue)
-                {
-                    thamnien = nam - nv.NgayVaoLam.Value.Year;
-                }
-
-                // Nếu không có ngày vào làm hoặc thâm niên không hợp lệ, sử dụng thâm niên mặc định (0)
-                if (!thamnien.HasValue || thamnien < 0)
-                {
-                    thamnien = 0;
-                }
+                var thamnien = CompletedYears(nv.NgayVaoLam, new DateOnly(nam, 1, 1));
 
                 // Tính số ngày phép được cấp theo cách mới - tính tích lũy từ năm vào làm
-                decimal soNgayPhepDuocCap = TinhSoNgayPhepTichLuy(nam, nv, cauHinh, thamnien.Value);
+                decimal soNgayPhepDuocCap = TinhSoNgayPhepTichLuy(nam, nv, cauHinh, thamnien);
 
                 // Kiểm tra và xử lý bản ghi trong PhepNamNhanVien
                 var phepNam = await _context.PhepNamNhanViens
@@ -185,18 +174,25 @@ namespace HR_KD.Services
         /// <summary>
         /// Tính số ngày phép được cấp tích lũy theo thâm niên và các chính sách áp dụng
         /// </summary>
+        internal static int CompletedYears(DateOnly? startDate, DateOnly asOf)
+        {
+            if (startDate is not { } start || start > asOf)
+                return 0;
+
+            var years = asOf.Year - start.Year;
+            return start.AddYears(years) > asOf ? years - 1 : years;
+        }
+
         private decimal TinhSoNgayPhepTichLuy(int namHienTai, NhanVien nv, CauHinhPhepNam cauHinh, int thamNien)
         {
             decimal soNgayPhep = cauHinh.SoNgayPhepMacDinh;
 
             if (nv.NgayVaoLam.HasValue && cauHinh.CauHinhPhep_ChinhSachs != null && cauHinh.CauHinhPhep_ChinhSachs.Any())
             {
-                int namVaoLam = nv.NgayVaoLam.Value.Year;
-
                 // Lấy danh sách các chính sách còn hiệu lực
                 var danhSachChinhSach = cauHinh.CauHinhPhep_ChinhSachs
                     .Where(cp => cp.ChinhSachPhepNam != null &&
-                                cp.ChinhSachPhepNam.ConHieuLuc &&
+                                cp.ChinhSachPhepNam.ConHieuLuc && cp.ChinhSachPhepNam.SoNam > 0 &&
                                 cp.ChinhSachPhepNam.ApDungTuNam <= namHienTai)
                     .ToList();
 
@@ -243,7 +239,7 @@ namespace HR_KD.Services
                 {
                     // Kiểm tra null trước khi truy cập thuộc tính
                     if (cp.ChinhSachPhepNam != null &&
-                        cp.ChinhSachPhepNam.ConHieuLuc &&
+                        cp.ChinhSachPhepNam.ConHieuLuc && cp.ChinhSachPhepNam.SoNam > 0 &&
                         cp.ChinhSachPhepNam.ApDungTuNam <= nam &&
                         thamnien >= cp.ChinhSachPhepNam.SoNam)
                     {
@@ -305,13 +301,9 @@ namespace HR_KD.Services
                 cauHinh.CauHinhPhep_ChinhSachs = new List<CauHinhPhep_ChinhSach>();
             }
 
-            // Tính thâm niên
-            int thamnien = 0;
-            if (nv.NgayVaoLam.HasValue && nv.NgayVaoLam.Value.Year <= nam)
-            {
-                thamnien = nam - nv.NgayVaoLam.Value.Year;
-                if (thamnien < 0) thamnien = 0;
-            }
+            var today = DateOnly.FromDateTime(DateTime.Today);
+            var asOf = new DateOnly(nam, 12, 31);
+            var thamnien = CompletedYears(nv.NgayVaoLam, asOf < today ? asOf : today);
 
             // Tính số ngày phép được cấp với cách tính mới - tích lũy theo mốc
             decimal soNgayPhepDuocCap = TinhSoNgayPhepTichLuy(nam, nv, cauHinh, thamnien);
@@ -433,11 +425,7 @@ namespace HR_KD.Services
                     throw new InvalidOperationException("Nhân viên không tồn tại.");
                 }
 
-                // Tính thâm niên
-                int thamnien = nhanVien.NgayVaoLam.HasValue
-                    ? ngayNghi.NgayNghi1.Year - nhanVien.NgayVaoLam.Value.Year
-                    : 0;
-                if (thamnien < 0) thamnien = 0;
+                var thamnien = CompletedYears(nhanVien.NgayVaoLam, ngayNghi.NgayNghi1);
 
                 // Tính số ngày phép được cấp với cách tính mới - tích lũy theo mốc
                 decimal soNgayPhepDuocCap = TinhSoNgayPhepTichLuy(ngayNghi.NgayNghi1.Year, nhanVien, cauHinh, thamnien);

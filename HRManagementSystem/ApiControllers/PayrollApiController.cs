@@ -31,6 +31,7 @@ namespace HR_KD.ApiControllers
         }
 
         #region Xử lý tạo hoặc lấy bảng lương theo từng phòng ban (Admin có thể dùng)
+        [Authorize(Roles = "DIRECTOR,PAYROLL_AUDITOR")]
         [HttpGet("GetPayrollStatus")]
         public async Task<IActionResult> GetPayrollStatus(int year, int month)
         {
@@ -61,10 +62,15 @@ namespace HR_KD.ApiControllers
             return Ok(data);
         }
 
+        [Authorize(Roles = "DIRECTOR,PAYROLL_AUDITOR")]
         [HttpPost("CreateOrGetPayroll")]
         public async Task<IActionResult> CreateOrGetPayroll(int maNv, int year, int month)
         {
+            if (year is < 1900 or > 9998 || month is < 1 or > 12)
+                return BadRequest("Tháng hoặc năm tính lương không hợp lệ.");
+
             var monthDate = new DateTime(year, month, 1);
+            await using var transaction = await _context.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable);
 
             var existing = await _context.BangLuongs
                 .FirstOrDefaultAsync(x => x.MaNv == maNv && x.ThangNam.Year == year && x.ThangNam.Month == month);
@@ -85,15 +91,24 @@ namespace HR_KD.ApiControllers
                 return BadRequest("Không có dữ liệu chấm công trong tháng.");
 
             var thongTinLuong = await _context.ThongTinLuongNVs
-                .Where(x => x.MaNv == maNv)
+                .Where(x => x.MaNv == maNv && x.NgayApDung < monthDate.AddDays(1))
                 .OrderByDescending(x => x.NgayApDung)
+                .ThenByDescending(x => x.MaLuongNV)
                 .FirstOrDefaultAsync();
 
             if (thongTinLuong == null)
                 return BadRequest("Không tìm thấy thông tin lương cho nhân viên.");
 
 
-            var payroll = await _calculator.CalculatePayroll(maNv, monthDate, chamCongs, thongTinLuong);
+            BangLuong payroll;
+            try
+            {
+                payroll = await _calculator.CalculatePayroll(maNv, monthDate, chamCongs, thongTinLuong);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(ex.Message);
+            }
 
             payroll.NguoiTao = User.Identity?.Name ?? "System";
             payroll.NgayTao = DateTime.Now;
@@ -102,13 +117,19 @@ namespace HR_KD.ApiControllers
             _context.BangLuongs.Add(payroll);
             await _context.SaveChangesAsync();
 
+            await transaction.CommitAsync();
             return Ok(new { created = true, maLuong = payroll.MaLuong });
         }
 
+        [Authorize(Roles = "DIRECTOR,PAYROLL_AUDITOR")]
         [HttpPost("CreateBulkPayroll")]
         public async Task<IActionResult> CreateBulkPayroll(int year, int month)
         {
+            if (year is < 1900 or > 9998 || month is < 1 or > 12)
+                return BadRequest("Tháng hoặc năm tính lương không hợp lệ.");
+
             var monthDate = new DateTime(year, month, 1);
+            await using var transaction = await _context.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable);
             var nhanViensChuaCoBangLuong = await _context.NhanViens
                 .Where(nv => !_context.BangLuongs.Any(bl => bl.MaNv == nv.MaNv && bl.ThangNam.Year == year && bl.ThangNam.Month == month))
                 .ToListAsync();
@@ -129,8 +150,9 @@ namespace HR_KD.ApiControllers
                 }
 
                 var thongTinLuong = await _context.ThongTinLuongNVs
-                    .Where(x => x.MaNv == nv.MaNv)
+                    .Where(x => x.MaNv == nv.MaNv && x.NgayApDung < monthDate.AddDays(1))
                     .OrderByDescending(x => x.NgayApDung)
+                    .ThenByDescending(x => x.MaLuongNV)
                     .FirstOrDefaultAsync();
 
                 if (thongTinLuong == null)
@@ -139,7 +161,15 @@ namespace HR_KD.ApiControllers
                     continue; // Skip this employee if no salary info
                 }
 
-                var payroll = await _calculator.CalculatePayroll(nv.MaNv, monthDate, chamCongs, thongTinLuong);
+                BangLuong payroll;
+                try
+                {
+                    payroll = await _calculator.CalculatePayroll(nv.MaNv, monthDate, chamCongs, thongTinLuong);
+                }
+                catch (InvalidOperationException ex)
+                {
+                    return BadRequest($"Nhân viên {nv.MaNv}: {ex.Message}");
+                }
                 payroll.NguoiTao = User.Identity?.Name ?? "System";
                 payroll.NgayTao = DateTime.Now;
                 payroll.TrangThai = "BL1"; // Initial status
@@ -149,6 +179,7 @@ namespace HR_KD.ApiControllers
             }
 
             await _context.SaveChangesAsync();
+            await transaction.CommitAsync();
             _logger.LogInformation($"Bulk payroll creation completed. Created {count} new payrolls for month {month}/{year}.");
 
             return Ok($"Đã tạo {count} bảng lương mới.");
@@ -169,10 +200,22 @@ namespace HR_KD.ApiControllers
                 return NotFound("Không tìm thấy bảng lương.");
 
             var nv = payroll.MaNvNavigation;
+            var currentEmployeeId = int.TryParse(User.FindFirst("MaNV")?.Value, out var id) ? id : 0;
+            if (!User.IsInRole("DIRECTOR") && !User.IsInRole("PAYROLL_AUDITOR"))
+            {
+                var isOwnPublishedPayroll = currentEmployeeId == nv.MaNv && payroll.TrangThai == PayrollStatus.SentToEmployee;
+                var isDepartmentManager = (User.IsInRole("LINE_MANAGER") || User.IsInRole("EMPLOYEE_MANAGER"))
+                    && await _context.NhanViens.AnyAsync(x => x.MaNv == currentEmployeeId
+                        && x.MaPhongBan == nv.MaPhongBan && x.MaChucVu < nv.MaChucVu);
+                if (!isOwnPublishedPayroll && !isDepartmentManager)
+                    return Forbid();
+            }
 
+            var payrollMonth = new DateTime(payroll.ThangNam.Year, payroll.ThangNam.Month, 1);
             var thongTinLuong = await _context.ThongTinLuongNVs
-                .Where(x => x.MaNv == nv.MaNv)
+                .Where(x => x.MaNv == nv.MaNv && x.NgayApDung < payrollMonth.AddDays(1))
                 .OrderByDescending(x => x.NgayApDung)
+                .ThenByDescending(x => x.MaLuongNV)
                 .FirstOrDefaultAsync();
 
             var hopDong = await _context.HopDongLaoDongs

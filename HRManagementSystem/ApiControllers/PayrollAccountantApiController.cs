@@ -1,4 +1,5 @@
-﻿using HR_KD.Common;
+﻿using Microsoft.AspNetCore.Authorization;
+using HR_KD.Common;
 using HR_KD.Data;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -11,6 +12,7 @@ namespace HR_KD.ApiControllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize(Roles = "DIRECTOR,PAYROLL_AUDITOR")]
     public class PayrollAccountantApiController : ControllerBase
     {
         private readonly HrDbContext _context;

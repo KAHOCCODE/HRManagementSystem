@@ -1,0 +1,44 @@
+@using HR_KD.Services
+@using System.Globalization
+@{
+    Layout = "~/Views/Shared/_ThemeLayout.cshtml";
+    ViewData["Title"] = "Mức lương tối thiểu theo văn bản";
+    var vietNam = CultureInfo.GetCultureInfo("vi-VN");
+}
+<h1>Mức lương tối thiểu theo văn bản</h1>
+<p>Đối chiếu địa điểm làm việc với phụ lục của văn bản áp dụng trước khi chọn vùng lương.</p>
+<div class="table-responsive">
+    <table class="table table-bordered">
+        <thead>
+            <tr>
+                <th scope="col">Hiệu lực từ</th>
+                <th scope="col">Vùng</th>
+                <th scope="col">Đồng/tháng</th>
+                <th scope="col">Đồng/giờ</th>
+                <th scope="col">Văn bản</th>
+            </tr>
+        </thead>
+        <tbody>
+        @foreach (var year in new[] { 2026, 2027 })
+        {
+            var date = new DateOnly(year, 1, 1);
+            var code = year == 2026 ? "293/2025/NĐ-CP" : "399/2026/NĐ-CP";
+            var reference = year == 2026
+                ? "https://vanban.chinhphu.vn/?docid=215832&pageid=27160"
+                : "https://vanban.chinhphu.vn/?docid=220166&pageid=27160";
+            @for (var region = 1; region <= 4; region++)
+            {
+                var wage = StatutoryPayroll.MinimumWage(date, region)!.Value;
+                <tr>
+                    <td>@date.ToString("dd/MM/yyyy")</td>
+                    <td>@region</td>
+                    <td>@wage.Month.ToString("N0", vietNam)</td>
+                    <td>@wage.Hour.ToString("N0", vietNam)</td>
+                    <td><a href="@reference">@code</a></td>
+                </tr>
+            }
+        }
+        </tbody>
+    </table>
+</div>
+<a asp-action="Index">Về cấu hình lương</a>

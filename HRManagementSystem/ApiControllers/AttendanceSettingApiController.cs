@@ -9,6 +9,8 @@ using Microsoft.AspNetCore.Authorization;
 namespace HR_KD.ApiControllers
 {
     [Route("api/AttendanceSettingApi")]
+    [Authorize]
+    [AutoValidateAntiforgeryToken]
     public class AttendanceSettingApiController : Controller
     {
         private readonly HrDbContext _context;
@@ -35,6 +37,7 @@ namespace HR_KD.ApiControllers
             return Json(data);
         }
 
+        [Authorize(Roles = "DIRECTOR")]
         [HttpPost("SetChamCongGioRaVao")]
         public async Task<IActionResult> SetChamCongGioRaVao([FromBody] ChamCongGioRaVaoDto model)
         {
@@ -76,6 +79,7 @@ namespace HR_KD.ApiControllers
             }
         }
 
+        [Authorize(Roles = "DIRECTOR")]
         [HttpPost("ActivateChamCongGioRaVao/{id}")]
         public async Task<IActionResult> ActivateChamCongGioRaVao(int id)
         {
@@ -121,6 +125,7 @@ namespace HR_KD.ApiControllers
             return Json(data);
         }
 
+        [Authorize(Roles = "DIRECTOR")]
         [HttpPost("ActivateLichLamViec/{tenLich}")]
         public async Task<IActionResult> ActivateLichLamViec(string tenLich)
         {
@@ -147,6 +152,7 @@ namespace HR_KD.ApiControllers
             return Json(data);
         }
 
+        [Authorize(Roles = "DIRECTOR")]
         [HttpPost("CreateTiLeTangCa")]
         public async Task<IActionResult> CreateTiLeTangCa([FromBody] TiLeTangCa model)
         {
@@ -162,6 +168,7 @@ namespace HR_KD.ApiControllers
             return Json(model);
         }
 
+        [Authorize(Roles = "DIRECTOR")]
         [HttpPut("UpdateTiLeTangCa/{id}")]
         public async Task<IActionResult> UpdateTiLeTangCa(int id, [FromBody] TiLeTangCa model)
         {
@@ -185,6 +192,7 @@ namespace HR_KD.ApiControllers
             return Ok();
         }
 
+        [Authorize(Roles = "DIRECTOR")]
         [HttpPost("ActivateTiLeTangCa/{id}")]
         public async Task<IActionResult> ActivateTiLeTangCa(int id)
         {
@@ -201,6 +209,7 @@ namespace HR_KD.ApiControllers
             return Json(_context.TiLeTangCas.ToList());
         }
 
+        [Authorize(Roles = "DIRECTOR")]
         [HttpPost("SaveGioChuan")]
         public async Task<IActionResult> SaveGioChuan([FromBody] GioChuan model)
         {
@@ -264,6 +273,7 @@ namespace HR_KD.ApiControllers
             return Json(data);
         }
 
+        [Authorize(Roles = "DIRECTOR")]
         [HttpGet("GetAttendanceManagerRecords")]
         public IActionResult GetAttendanceRecords(int maNv)
         {
@@ -302,6 +312,7 @@ namespace HR_KD.ApiControllers
             return Json(data);
         }
 
+        [Authorize(Roles = "DIRECTOR")]
         [HttpPost("CreateNgayLeCoDinh")]
         public async Task<IActionResult> CreateNgayLeCoDinh([FromBody] NgayLeCoDinhDto model)
         {
@@ -330,6 +341,7 @@ namespace HR_KD.ApiControllers
             }
         }
 
+        [Authorize(Roles = "DIRECTOR")]
         [HttpPut("UpdateNgayLeCoDinh/{id}")]
         public async Task<IActionResult> UpdateNgayLeCoDinh(int id, [FromBody] NgayLeCoDinhDto model)
         {
@@ -361,6 +373,7 @@ namespace HR_KD.ApiControllers
             }
         }
 
+        [Authorize(Roles = "DIRECTOR")]
         [HttpDelete("DeleteNgayLeCoDinh/{id}")]
         public async Task<IActionResult> DeleteNgayLeCoDinh(int id)
         {

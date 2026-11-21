@@ -277,6 +277,8 @@
                     method: "POST",
                     contentType: "application/json",
                     data: JSON.stringify({
+                        MaNv: Number($("#MaNv").val()),
+                        NgayApDung: $("#NgayApDung").val(),
                         LuongCoBan: luongCoBan,
                         PhuCapCoDinh: phuCapCoDinh,
                         ThuongCoDinh: thuongCoDinh

@@ -25,6 +25,38 @@ namespace HR_KD.ApiControllers
             var maNvClaim = User.FindFirst("MaNV")?.Value;
             return int.TryParse(maNvClaim, out int maNv) ? maNv : null;
         }
+        [HttpGet("/Uploads/{fileName}")]
+        public async Task<IActionResult> DownloadAttachment(string fileName, [FromServices] IWebHostEnvironment environment)
+        {
+            if (!int.TryParse(User.FindFirst("MaNV")?.Value, out var employeeId)
+                || fileName != Path.GetFileName(fileName) || fileName.Contains('\\'))
+                return NotFound();
+
+            var canReview = User.IsInRole("EMPLOYEE_MANAGER");
+            var canSeeAll = User.IsInRole("DIRECTOR");
+            var attachments = await _context.NgayNghis.AsNoTracking()
+                .Where(x => x.FileDinhKem != null && x.FileDinhKem.Contains(fileName)
+                    && (x.MaNv == employeeId || canSeeAll || (canReview && _context.NhanViens.Any(reviewer =>
+                        reviewer.MaNv == employeeId && reviewer.MaPhongBan == x.MaNvNavigation.MaPhongBan
+                        && reviewer.MaChucVu < x.MaNvNavigation.MaChucVu))))
+                .Select(x => x.FileDinhKem!).Distinct().ToListAsync();
+            if (!attachments.Any(x => x.Split('-', StringSplitOptions.RemoveEmptyEntries).Contains(fileName, StringComparer.Ordinal)))
+                return NotFound();
+
+            var path = Path.Combine(environment.WebRootPath, "Uploads", fileName);
+            if (!System.IO.File.Exists(path))
+                return NotFound();
+
+            Response.Headers.CacheControl = "private, no-store";
+            Response.Headers.XContentTypeOptions = "nosniff";
+            var contentTypes = new Microsoft.AspNetCore.StaticFiles.FileExtensionContentTypeProvider();
+            if (contentTypes.TryGetContentType(fileName, out var contentType)
+                && contentType is "image/jpeg" or "image/png" or "image/gif" or "image/webp" or "application/pdf")
+                return PhysicalFile(path, contentType);
+
+            return PhysicalFile(path, "application/octet-stream", fileName);
+        }
+
         [HttpPost]
         [Route("SubmitLeave")]
         public async Task<IActionResult> SubmitLeave([FromForm] string leaveRequestsJson, [FromForm] List<IFormFile> files)
@@ -67,8 +99,11 @@ namespace HR_KD.ApiControllers
                     {
                         if (file.Length > 0)
                         {
-                            string originalFileName = Path.GetFileNameWithoutExtension(file.FileName);
-                            string extension = Path.GetExtension(file.FileName);
+                            string originalFileName = Guid.NewGuid().ToString("N");
+                            string extension = Path.GetExtension(file.FileName).ToLowerInvariant();
+                            if (extension is not (".pdf" or ".jpg" or ".jpeg" or ".png" or ".doc" or ".docx")
+                                || file.Length > 10 * 1024 * 1024)
+                                return BadRequest(new { message = "Tệp phải là PDF, JPG, PNG hoặc Word và tối đa 10 MB." });
                             string sanitizedFileName = originalFileName + extension;
                             string filePath = Path.Combine(uploadPath, sanitizedFileName);
 
@@ -80,7 +115,7 @@ namespace HR_KD.ApiControllers
                                 count++;
                             }
 
-                            using (var stream = new FileStream(filePath, FileMode.Create))
+                            using (var stream = new FileStream(filePath, FileMode.CreateNew))
                             {
                                 await file.CopyToAsync(stream);
                             }
@@ -126,7 +161,7 @@ namespace HR_KD.ApiControllers
                         .Distinct()
                         .CountAsync();
 
-                    if (loaiNgayNghi.SoLanDangKyToiDa.HasValue &&
+                    if (loaiNgayNghi.SoLanDangKyToiDa is > 0 &&
                         (soLanDangKy + 1) > loaiNgayNghi.SoLanDangKyToiDa.Value)
                     {
                         return BadRequest(new { success = false, message = $"Vượt quá số lần đăng ký tối đa cho loại {loaiNgayNghi.TenLoai} trong năm." });
@@ -681,8 +716,11 @@ namespace HR_KD.ApiControllers
                     {
                         if (file.Length > 0)
                         {
-                            string originalFileName = Path.GetFileNameWithoutExtension(file.FileName);
-                            string extension = Path.GetExtension(file.FileName);
+                            string originalFileName = Guid.NewGuid().ToString("N");
+                            string extension = Path.GetExtension(file.FileName).ToLowerInvariant();
+                            if (extension is not (".pdf" or ".jpg" or ".jpeg" or ".png" or ".doc" or ".docx")
+                                || file.Length > 10 * 1024 * 1024)
+                                return BadRequest(new { message = "Tệp phải là PDF, JPG, PNG hoặc Word và tối đa 10 MB." });
                             string sanitizedFileName = originalFileName + extension;
                             string filePath = Path.Combine(uploadPath, sanitizedFileName);
 
@@ -694,7 +732,7 @@ namespace HR_KD.ApiControllers
                                 count++;
                             }
 
-                            using (var stream = new FileStream(filePath, FileMode.Create))
+                            using (var stream = new FileStream(filePath, FileMode.CreateNew))
                             {
                                 await file.CopyToAsync(stream);
                             }

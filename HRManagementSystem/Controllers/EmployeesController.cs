@@ -118,6 +118,7 @@ namespace HR_KD.Controllers
         #endregion
 
         #region Phân quyền
+        [Authorize(Roles = "DIRECTOR,EMPLOYEE_MANAGER,LINE_MANAGER")]
         public IActionResult Roles()
         {
             var currentUser = _context.TaiKhoans
@@ -172,6 +173,7 @@ namespace HR_KD.Controllers
         }
 
         [HttpPost]
+        [Authorize(Roles = "DIRECTOR,EMPLOYEE_MANAGER,LINE_MANAGER")]
         public JsonResult UpdateRoles([FromBody] AssignRoleDto dto)
         {
             var user = _context.TaiKhoans

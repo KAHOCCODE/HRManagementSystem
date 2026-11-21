@@ -5,14 +5,17 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using HR_KD.Common;
+using HR_KD.Services;
 
 public class PayrollCalculator
 {
     private readonly HrDbContext _context;
+    private readonly IConfiguration _configuration;
 
-    public PayrollCalculator(HrDbContext context)
+    public PayrollCalculator(HrDbContext context, IConfiguration configuration)
     {
         _context = context;
+        _configuration = configuration;
     }
 
     public async Task<decimal> CalculateRemainingLeaveDays(int employeeId, int year)
@@ -47,14 +50,23 @@ public class PayrollCalculator
             TrangThai = PayrollStatus.Created
         };
 
-        var contract = await _context.HopDongLaoDongs
+        var startOfMonth = new DateOnly(monthYear.Year, monthYear.Month, 1);
+        var endOfMonth = startOfMonth.AddMonths(1).AddDays(-1);
+        var contracts = await _context.HopDongLaoDongs
             .Include(hd => hd.LoaiHopDong)
-            .FirstOrDefaultAsync(hd => hd.MaNv == employeeId && hd.IsActive);
+            .Where(hd => hd.MaNv == employeeId && hd.NgayBatDau <= endOfMonth
+                && (hd.NgayKetThuc == null || hd.NgayKetThuc >= startOfMonth)
+                && (hd.NgayNghiViec == null || hd.NgayNghiViec >= startOfMonth))
+            .Take(2)
+            .ToListAsync();
 
-        if (contract == null)
-        {
-            throw new Exception("Nhân viên không có hợp đồng lao động hợp lệ.");
-        }
+        if (contracts.Count != 1)
+            throw new InvalidOperationException("Kỳ lương cần đúng một hợp đồng có hiệu lực. Hãy đối soát hồ sơ hoặc tách kỳ có thay đổi.");
+
+        var contract = contracts[0];
+        if (await _context.ThongTinLuongNVs.AnyAsync(x => x.MaNv == employeeId
+                && x.NgayApDung >= monthYear.AddDays(1) && x.NgayApDung < monthYear.AddMonths(1)))
+            throw new InvalidOperationException("Có thay đổi lương giữa tháng. Cần phân đoạn kỳ lương trước khi tính.");
 
         decimal tiLeLuong = (decimal)(contract.LoaiHopDong.TiLeLuong ?? 1.0);
 
@@ -94,7 +106,6 @@ public class PayrollCalculator
 
         // Tính số giờ làm việc thực tế
         decimal actualHours = validAttendanceRecords.Sum(a => a.TongGio ?? 0);
-        decimal actualDays = validAttendanceRecords.Count; // Số ngày có chấm công hợp lệ (dùng để log và kiểm tra)
 
         // Lấy cấu hình giờ làm việc mỗi ngày
         var workingHoursRecord = await _context.ChamCongGioRaVaos
@@ -108,11 +119,10 @@ public class PayrollCalculator
         }
 
         decimal dailyWorkingHours = workingHoursRecord.TongGio;
-        decimal standardDays = standardHours / dailyWorkingHours; // Số ngày chuẩn trong tháng (dùng để log)
+        if (standardHours <= 0 || dailyWorkingHours <= 0)
+            throw new InvalidOperationException("Giờ công chuẩn phải lớn hơn 0.");
 
         // Lấy dữ liệu thiếu/bù theo từng ngày trong tháng
-        var startOfMonth = new DateOnly(monthYear.Year, monthYear.Month, 1);
-        var endOfMonth = startOfMonth.AddMonths(1).AddDays(-1);
 
         var timeRecords = await _context.TongGioThieus
             .Where(t => t.MaNv == employeeId &&
@@ -120,27 +130,10 @@ public class PayrollCalculator
                         t.NgayBatDauThieu <= endOfMonth)
             .ToListAsync();
 
-        decimal missingHours = timeRecords.Sum(t => t.TongGioConThieu);
         decimal makeupHours = timeRecords.Sum(t => t.TongGioLamBu);
 
         // Cộng giờ bù vào actualHours
         actualHours += makeupHours;
-
-        // Ghi log chấm công
-        Console.WriteLine($"[DEBUG] EmployeeId: {employeeId}, MonthYear: {monthYear:yyyy-MM}, StandardDays: {standardDays}, ActualDays: {actualDays}, StandardHours: {standardHours}, ActualHours: {actualHours}, MissingHours: {missingHours}, MakeupHours: {makeupHours}");
-
-        // Tính số ngày phép còn lại
-        decimal remainingLeaveDays = 0;
-        var currentYearLeave = await _context.PhepNamNhanViens
-            .FirstOrDefaultAsync(p => p.MaNv == employeeId && p.Nam == monthYear.Year && p.IsTinhLuong == true);
-
-        if (currentYearLeave != null)
-        {
-            remainingLeaveDays = await CalculateRemainingLeaveDays(employeeId, monthYear.Year);
-        }
-
-        // Cộng giờ phép vào actualHours
-        actualHours += remainingLeaveDays * dailyWorkingHours;
 
         // Tính lương cơ bản dựa trên số giờ làm việc thực tế
         decimal baseSalary = salaryInfo.LuongCoBan * (actualHours / standardHours) * tiLeLuong;
@@ -155,54 +148,25 @@ public class PayrollCalculator
             .ToListAsync();
         decimal overtimeSalary = overtimeRecords.Sum(t => (decimal)t.SoGioTangCa * hourlyRate * t.TyLeTangCa);
 
-        // Kiểm tra dữ liệu đầu vào cho PhuCapCoDinh và ThuongCoDinh
         decimal phuCapCoDinh = salaryInfo.PhuCapCoDinh ?? 0;
         decimal thuongCoDinh = salaryInfo.ThuongCoDinh ?? 0;
-
-        if (phuCapCoDinh == 0)
-        {
-            Console.WriteLine($"[WARNING] EmployeeId: {employeeId}, PhuCapCoDinh is 0 or null. Expected non-zero value based on payroll data.");
-        }
-        if (thuongCoDinh == 0)
-        {
-            Console.WriteLine($"[WARNING] EmployeeId: {employeeId}, ThuongCoDinh is 0 or null. Expected non-zero value based on payroll data.");
-        }
-
-        // Tính tổng lương gộp
         decimal grossSalary = baseSalary + phuCapCoDinh + thuongCoDinh + overtimeSalary;
-
-        // Kiểm tra tính hợp lệ của grossSalary
-        decimal expectedGrossSalary = baseSalary + phuCapCoDinh + thuongCoDinh + overtimeSalary;
-        if (grossSalary != expectedGrossSalary)
-        {
-            throw new Exception($"Lỗi tính tổng lương gộp: grossSalary ({grossSalary:N2}) không khớp với giá trị kỳ vọng ({expectedGrossSalary:N2}).");
-        }
-
-        // Ghi log chi tiết các thành phần của grossSalary
-        Console.WriteLine($"[DEBUG] EmployeeId: {employeeId}, MonthYear: {monthYear:yyyy-MM}, BaseSalary: {baseSalary:N2}, PhuCapCoDinh: {phuCapCoDinh:N2}, ThuongCoDinh: {thuongCoDinh:N2}, OvertimeSalary: {overtimeSalary:N2}, GrossSalary: {grossSalary:N2}");
 
         decimal bhxh = salaryInfo.BHXH;
         decimal bhyt = salaryInfo.BHYT;
         decimal bhtn = salaryInfo.BHTN;
 
         decimal totalInsurance = bhxh + bhyt + bhtn;
-        if (totalInsurance > grossSalary)
-        {
-            decimal ratio = grossSalary / totalInsurance;
-            bhxh *= ratio;
-            bhyt *= ratio;
-            bhtn *= ratio;
-            totalInsurance = grossSalary;
-        }
+        if (totalInsurance > grossSalary || bhxh < 0 || bhyt < 0 || bhtn < 0)
+            throw new InvalidOperationException("Khoản bảo hiểm vượt lương gộp hoặc bị âm. Hãy đối soát kỳ lương.");
 
         var giamTruGiaCanh = await _context.GiamTruGiaCanhs
-            .Where(g => g.NgayHieuLuc <= monthYear && (g.NgayHetHieuLuc == null || g.NgayHetHieuLuc >= monthYear))
+            .Where(g => g.NgayHieuLuc <= monthYear && (g.NgayHetHieuLuc == null || g.NgayHetHieuLuc > monthYear))
+            .OrderByDescending(g => g.NgayHieuLuc)
             .FirstOrDefaultAsync();
 
-        if (giamTruGiaCanh == null)
-        {
-            throw new Exception("Không tìm thấy thông tin giảm trừ gia cảnh hợp lệ.");
-        }
+        if (giamTruGiaCanh == null && monthYear.Year is not (2026 or 2027))
+            throw new InvalidOperationException("Không tìm thấy thông tin giảm trừ gia cảnh hợp lệ.");
 
         var employee = await _context.NhanViens
             .FirstOrDefaultAsync(nv => nv.MaNv == employeeId);
@@ -212,20 +176,19 @@ public class PayrollCalculator
             throw new Exception("Không tìm thấy thông tin nhân viên.");
         }
 
-        decimal mucGiamTruBanThan = giamTruGiaCanh.MucGiamTruBanThan;
-        decimal mucGiamTruNguoiPhuThuoc = giamTruGiaCanh.MucGiamTruNguoiPhuThuoc;
+        decimal mucGiamTruBanThan = monthYear.Year is 2026 or 2027 ? 15500000m : giamTruGiaCanh!.MucGiamTruBanThan;
+        decimal mucGiamTruNguoiPhuThuoc = monthYear.Year is 2026 or 2027 ? 6200000m : giamTruGiaCanh!.MucGiamTruNguoiPhuThuoc;
         int soNguoiPhuThuoc = employee.SoNguoiPhuThuoc;
 
         decimal giamTruTongCong = mucGiamTruBanThan + (soNguoiPhuThuoc * mucGiamTruNguoiPhuThuoc);
         decimal taxableIncome = grossSalary - bhxh - bhyt - bhtn - giamTruTongCong;
 
-        // Ghi log các giá trị tính thuế
-        Console.WriteLine($"[DEBUG] EmployeeId: {employeeId}, TotalInsurance: {totalInsurance:N2}, GiamTruTongCong: {giamTruTongCong:N2}, TaxableIncome: {taxableIncome:N2}");
-
         decimal personalIncomeTax = 0;
         if (taxableIncome > 0)
         {
-            personalIncomeTax = await CalculatePersonalIncomeTax(taxableIncome);
+            personalIncomeTax = monthYear.Year is 2026 or 2027
+                ? StatutoryPayroll.ResidentTax2026(taxableIncome)
+                : await CalculatePersonalIncomeTax(taxableIncome);
         }
 
         decimal netSalary = grossSalary - bhxh - bhyt - bhtn - personalIncomeTax;
@@ -233,9 +196,6 @@ public class PayrollCalculator
         {
             netSalary = 0;
         }
-
-        // Ghi log kết quả
-        Console.WriteLine($"[DEBUG] EmployeeId: {employeeId}, PersonalIncomeTax: {personalIncomeTax:N2}, NetSalary: {netSalary:N2}");
 
         payroll.TongLuong = grossSalary;
         payroll.LuongTangCa = overtimeSalary;
@@ -280,48 +240,71 @@ public class PayrollCalculator
             remainingIncome -= taxableInBracket;
         }
 
+        if (remainingIncome > 0)
+            throw new InvalidOperationException("Biểu thuế chưa bao phủ hết thu nhập tính thuế.");
+
         return tax;
     }
 
-    public async Task<(decimal BHXH, decimal BHYT, decimal BHTN, string ErrorMessage)> CalculateInsurance(decimal luongCoBan, decimal? phuCapCoDinh, decimal? thuongCoDinh)
+    public async Task<decimal?> ResolveMonthlyMinimumWage(int employeeId, DateTime effectiveDate)
+    {
+        var department = await _context.NhanViens.Where(x => x.MaNv == employeeId)
+            .Select(x => (int?)x.MaPhongBan).SingleOrDefaultAsync();
+        if (department == null)
+            return null;
+
+        // The existing employee model only records a department. Configure a region for a
+        // department only when all employees in it share the same place of work.
+        var configuredRegion = _configuration.GetValue<int?>($"HR:WorkRegionsByDepartment:{department}");
+        var currentRegions = await _context.MucLuongToiThieuVungs
+            .Where(x => x.IsActive).Take(2).ToListAsync();
+        var region = configuredRegion ?? (currentRegions.Count == 1 ? currentRegions[0].VungLuong : null);
+        if (region is not (>= 1 and <= 4))
+            return null;
+
+        var published = StatutoryPayroll.MinimumWage(DateOnly.FromDateTime(effectiveDate), region.Value);
+        return published?.Month ?? (effectiveDate.Year < 2026 && currentRegions.Count == 1
+            && currentRegions[0].VungLuong == region ? currentRegions[0].MucLuongToiThieuThang : null);
+    }
+
+    public async Task<(decimal BHXH, decimal BHYT, decimal BHTN, string ErrorMessage)> CalculateInsurance(int employeeId, DateTime effectiveDate, decimal luongCoBan, decimal? phuCapCoDinh, decimal? thuongCoDinh)
     {
         try
         {
-            var activeMinimumWage = await _context.MucLuongToiThieuVungs
-                .Where(m => m.IsActive)
-                .FirstOrDefaultAsync();
+            var minimumWage = await ResolveMonthlyMinimumWage(employeeId, effectiveDate);
+            if (minimumWage == null)
+                return (0, 0, 0, "Cần xác định vùng lương và văn bản có hiệu lực tại ngày áp dụng.");
 
-            if (activeMinimumWage == null)
-            {
-                return (0, 0, 0, "Không có mức lương tối thiểu vùng đang hoạt động.");
-            }
-
-            var activeBaseSalary = await _context.MucLuongCoSos
-                .Where(m => m.IsActive)
-                .FirstOrDefaultAsync();
-
-            if (activeBaseSalary == null)
-            {
-                return (0, 0, 0, "Không có mức lương cơ sở đang hoạt động.");
-            }
+            var referenceAmount = await _context.MucLuongCoSos
+                .Where(x => x.NgayHieuLuc <= effectiveDate && (x.NgayHetHieuLuc == null || x.NgayHetHieuLuc > effectiveDate))
+                .OrderByDescending(x => x.NgayHieuLuc).FirstOrDefaultAsync();
+            if (referenceAmount == null)
+                return (0, 0, 0, "Chưa có mức tham chiếu hoặc mức lương cơ sở tại ngày áp dụng.");
 
             var insuranceRates = await _context.ThongTinBaoHiems
-                .Where(b => b.NgayHetHieuLuc == null)
+                .Where(x => x.NgayHieuLuc <= effectiveDate && (x.NgayHetHieuLuc == null || x.NgayHetHieuLuc > effectiveDate))
                 .ToListAsync();
+            if (new[] { "BHXH", "BHYT", "BHTN" }.Any(type => insuranceRates.Count(x => x.LoaiBaoHiem == type) != 1))
+                return (0, 0, 0, "Cần đúng một tỷ lệ cho từng loại bảo hiểm tại ngày áp dụng.");
 
             var bhxhRate = insuranceRates.FirstOrDefault(b => b.LoaiBaoHiem == "BHXH")?.TyLeNguoiLaoDong ?? 0;
             var bhytRate = insuranceRates.FirstOrDefault(b => b.LoaiBaoHiem == "BHYT")?.TyLeNguoiLaoDong ?? 0;
             var bhtnRate = insuranceRates.FirstOrDefault(b => b.LoaiBaoHiem == "BHTN")?.TyLeNguoiLaoDong ?? 0;
 
-            var luongDongBaoHiem = luongCoBan + (phuCapCoDinh ?? 0) + (thuongCoDinh ?? 0);
+            var additions = phuCapCoDinh.GetValueOrDefault() + thuongCoDinh.GetValueOrDefault();
+            var insurableAdditions = _configuration.GetValue<decimal?>(
+                $"HR:InsurableAdditionsByEmployee:{employeeId}:{effectiveDate:yyyy-MM}");
+            if ((additions > 0 && insurableAdditions == null) || insurableAdditions < 0 || insurableAdditions > additions)
+                return (0, 0, 0, "Cần khai số tiền bổ sung tính đóng bảo hiểm đã đối soát cho nhân viên và tháng áp dụng.");
+            var luongDongBaoHiem = luongCoBan + insurableAdditions.GetValueOrDefault();
 
-            var mucLuongToiThieuVung = activeMinimumWage.MucLuongToiThieuThang;
-            var mucLuongToiDaBHXH_BHYT = activeBaseSalary.LuongCoSo * 20;
-            var mucLuongToiDaBHTN = activeMinimumWage.MucLuongToiThieuThang * 20;
+            var mucLuongToiThieuVung = minimumWage.Value;
+            var mucLuongToiDaBHXH_BHYT = referenceAmount.LuongCoSo * 20;
+            var mucLuongToiDaBHTN = mucLuongToiThieuVung * 20;
 
             if (luongDongBaoHiem < mucLuongToiThieuVung)
             {
-                return (0, 0, 0, $"Mức lương đóng bảo hiểm (lương cơ bản + phụ cấp cố định + thưởng cố định) phải lớn hơn hoặc bằng mức lương tối thiểu vùng: {mucLuongToiThieuVung:N0} VNĐ.");
+                return (0, 0, 0, $"Mức lương dùng để tính bảo hiểm phải lớn hơn hoặc bằng mức lương tối thiểu vùng: {mucLuongToiThieuVung:N0} VNĐ.");
             }
 
             var luongDongBHXH = Math.Min(luongDongBaoHiem, mucLuongToiDaBHXH_BHYT);

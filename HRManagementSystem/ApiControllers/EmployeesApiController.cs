@@ -437,6 +437,7 @@ namespace HR_KD.ApiControllers
         #endregion
 
         #region Thêm nhân viên 
+        [Authorize(Roles = "EMPLOYEE_MANAGER,DIRECTOR")]
         [HttpPost("CreateEmployee")]
         public IActionResult CreateEmployee([FromForm] CreateEmployeeDTO employeeDto)
         {
@@ -446,6 +447,13 @@ namespace HR_KD.ApiControllers
                     .Select(e => e.ErrorMessage)
                     .ToList();
                 return BadRequest(new { message = string.Join(" | ", errors) });
+            }
+
+            if (employeeDto.AvatarUrl is { } avatar)
+            {
+                var extension = Path.GetExtension(avatar.FileName).ToLowerInvariant();
+                if (extension is not (".jpg" or ".jpeg" or ".png" or ".webp") || avatar.Length > 5 * 1024 * 1024)
+                    return BadRequest(new { message = "Ảnh đại diện phải là JPG, PNG hoặc WebP và tối đa 5 MB." });
             }
 
             using var transaction = _context.Database.BeginTransaction();
@@ -499,9 +507,9 @@ namespace HR_KD.ApiControllers
                 }
 
                 string username = _usernameGen.GenerateUsername(string.IsNullOrEmpty(employeeDto.HoTen) ? "user" : employeeDto.HoTen, maNvMoi);
-                string defaultPassword = "123456";
+                string temporaryPassword = PasswordHelper.CreateTemporaryPassword();
                 string randomkey = PasswordHelper.GenerateRandomKey();
-                string hashedPassword = BCrypt.Net.BCrypt.HashPassword(defaultPassword + randomkey);
+                string hashedPassword = PasswordHelper.HashTemporaryPassword(temporaryPassword, randomkey);
 
                 var taiKhoan = new TaiKhoan
                 {
@@ -570,7 +578,7 @@ namespace HR_KD.ApiControllers
                         {
                             Directory.CreateDirectory(basePath);
                         }
-                        var fileName = $"{maNvMoi}_{Path.GetFileName(employeeDto.AvatarUrl.FileName)}";
+                        var fileName = $"{maNvMoi}_{Guid.NewGuid():N}{Path.GetExtension(employeeDto.AvatarUrl.FileName).ToLowerInvariant()}";
                         var filePath = Path.Combine(basePath, fileName);
 
                         using (var stream = new FileStream(filePath, FileMode.Create))
@@ -588,6 +596,8 @@ namespace HR_KD.ApiControllers
                     }
                 }
 
+                transaction.Commit();
+
                 try
                 {
                     string subject = "Thông tin tài khoản nhân viên";
@@ -603,7 +613,7 @@ namespace HR_KD.ApiControllers
                     </tr>
                     <tr>
                         <td style='padding: 30px;'>
-                            <h2 style='color: #004080;'>Chào {employeeDto.HoTen},</h2>
+                            <h2 style='color: #004080;'>Chào {System.Net.WebUtility.HtmlEncode(employeeDto.HoTen)},</h2>
                             <p>Chúc mừng bạn đã trở thành một phần của công ty 🎉.</p>
                             <p>Dưới đây là thông tin tài khoản để bạn có thể đăng nhập vào hệ thống:</p>
 
@@ -614,12 +624,12 @@ namespace HR_KD.ApiControllers
                                 </tr>
                                 <tr>
                                     <td>{taiKhoan.Username}</td>
-                                    <td>{defaultPassword}</td>
+                                    <td>{temporaryPassword}</td>
                                 </tr>
                             </table>
 
                             <p style='margin-top: 20px; color: #888;'>
-                                * Vui lòng đăng nhập vào hệ thống và đổi mật khẩu để đảm bảo an toàn.
+                                * Chọn Đặt mật khẩu lần đầu trên trang đăng nhập trong vòng 24 giờ.
                             </p>
 
                             <div style='text-align:center; margin: 30px 0;'>
@@ -650,8 +660,6 @@ namespace HR_KD.ApiControllers
                 {
                     _logger.LogError(ex, "Lỗi khi gửi email.");
                 }
-
-                transaction.Commit();
 
                 var responseDto = new
                 {

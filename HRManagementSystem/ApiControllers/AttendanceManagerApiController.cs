@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using HR_KD.Data;
 using System.Linq;
 using HR_KD.DTOs;
@@ -12,6 +13,7 @@ using Microsoft.EntityFrameworkCore;
 
 [Route("api/AttendanceManager")]
 [ApiController]
+[Authorize(Roles = "DIRECTOR,EMPLOYEE_MANAGER")]
 public class AttendanceManagerController : ControllerBase
 {
     private readonly HrDbContext _context;
@@ -507,6 +509,7 @@ public class AttendanceManagerController : ControllerBase
     }
 
     // 🔹 Lấy danh sách chấm công của nhân viên (Director)
+    [Authorize(Roles = "DIRECTOR")]
     [HttpGet("GetAttendanceManagerRecordsDerector")]
     public IActionResult GetAttendanceRecordsDerector(int maNv)
     {
@@ -529,6 +532,7 @@ public class AttendanceManagerController : ControllerBase
     }
 
     // 🔹 Duyệt hoặc từ chối chấm công (Director, đơn lẻ)
+    [Authorize(Roles = "DIRECTOR")]
     [HttpPost("ApproveAttendanceManagerDerector")]
     public IActionResult ApproveAttendanceDerector(ApproveAttendanceRequestDTO request)
     {
@@ -669,6 +673,7 @@ public class AttendanceManagerController : ControllerBase
     }
 
     // 🔹 Duyệt hoặc từ chối nhiều bản ghi chấm công (Director)
+    [Authorize(Roles = "DIRECTOR")]
     [HttpPost("ApproveMultipleAttendanceManagerDerector")]
     public IActionResult ApproveMultipleAttendanceManagerDerector([FromBody] ApproveMultipleAttendanceRequestDTO request)
     {
@@ -819,6 +824,7 @@ public class AttendanceManagerController : ControllerBase
     }
 
     // 🔹 Lấy danh sách tăng ca của nhân viên (Director)
+    [Authorize(Roles = "DIRECTOR")]
     [HttpGet("GetOvertimeRecordsDerector")]
     public IActionResult GetOvertimeRecordsDerector(int maNv)
     {
@@ -839,6 +845,7 @@ public class AttendanceManagerController : ControllerBase
     }
 
     // 🔹 Duyệt hoặc từ chối tăng ca (Director, đơn lẻ)
+    [Authorize(Roles = "DIRECTOR")]
     [HttpPost("ApproveOvertimeDerector")]
     public IActionResult ApproveOvertimeDerector(ApproveAttendanceRequestDTO request)
     {
@@ -889,6 +896,7 @@ public class AttendanceManagerController : ControllerBase
     }
 
     // 🔹 Duyệt hoặc từ chối nhiều bản ghi tăng ca (Director)
+    [Authorize(Roles = "DIRECTOR")]
     [HttpPost("ApproveMultipleOvertimeDerector")]
     public IActionResult ApproveMultipleOvertimeDerector([FromBody] ApproveMultipleAttendanceRequestDTO request)
     {
@@ -1340,6 +1348,7 @@ public class AttendanceManagerController : ControllerBase
     }
 
     // 🔹 Lấy danh sách làm bù của nhân viên (Director)
+    [Authorize(Roles = "DIRECTOR")]
     [HttpGet("GetMakeupRecordsDerector")]
     public IActionResult GetMakeupRecordsDerector(int maNv)
     {
@@ -1362,6 +1371,7 @@ public class AttendanceManagerController : ControllerBase
     }
 
     // 🔹 Duyệt hoặc từ chối làm bù (Director, đơn lẻ)
+    [Authorize(Roles = "DIRECTOR")]
     [HttpPost("ApproveMakeupDerector")]
     public IActionResult ApproveMakeupDerector(ApproveAttendanceRequestDTO request)
     {
@@ -1444,6 +1454,7 @@ public class AttendanceManagerController : ControllerBase
     }
 
     // 🔹 Duyệt hoặc từ chối nhiều bản ghi làm bù (Director)
+    [Authorize(Roles = "DIRECTOR")]
     [HttpPost("ApproveMultipleMakeupDerector")]
     public IActionResult ApproveMultipleMakeupDerector([FromBody] ApproveMultipleAttendanceRequestDTO request)
     {

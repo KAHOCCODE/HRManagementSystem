@@ -2,25 +2,31 @@
 using HR_KD.DTOs;
 using HR_KD.Helpers;
 using HR_KD.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Newtonsoft.Json;
 
 namespace HR_KD.Controllers
 {
+    [Authorize(Roles = "EMPLOYEE_MANAGER,DIRECTOR")]
     public class EmployeeImportController : Controller
     {
         private readonly HrDbContext _context;
         private readonly ExcelTemplateService _excelService;
         private readonly UsernameGeneratorService _usernameGen;
+        private readonly EmailService _emailService;
+        private readonly ILogger<EmployeeImportController> _logger;
 
         public EmployeeImportController(
             HrDbContext context,
             ExcelTemplateService excelService,
-            UsernameGeneratorService usernameGen)
+            UsernameGeneratorService usernameGen, EmailService emailService, ILogger<EmployeeImportController> logger)
         {
             _context = context;
             _excelService = excelService;
             _usernameGen = usernameGen;
+            _emailService = emailService;
+            _logger = logger;
         }
 
         public IActionResult Index() => View();
@@ -80,6 +86,7 @@ namespace HR_KD.Controllers
         public IActionResult SaveImportBatch([FromForm] List<ImportNhanVienDto> list)
         {
             var savedCount = 0;
+            var activationEmailsFailed = 0;
 
             foreach (var dto in list)
             {
@@ -92,6 +99,7 @@ namespace HR_KD.Controllers
                     if (_context.TaiKhoans.Any(x => x.Username == dto.Sdt)) continue;
                     if (_context.NhanViens.Any(x => x.Email == dto.Email)) continue;
 
+                    using var transaction = _context.Database.BeginTransaction();
                     var nv = new NhanVien
                     {
                         HoTen = dto.HoTen,
@@ -112,9 +120,9 @@ namespace HR_KD.Controllers
 
                     // Tạo tài khoản
                     string username = _usernameGen.GenerateUsername(dto.HoTen, nv.MaNv);
-                    string pass = "123456";
+                    string pass = PasswordHelper.CreateTemporaryPassword();
                     string salt = PasswordHelper.GenerateRandomKey();
-                    string hash = BCrypt.Net.BCrypt.HashPassword(pass + salt);
+                    string hash = PasswordHelper.HashTemporaryPassword(pass, salt);
 
                     var acc = new TaiKhoan
                     {
@@ -133,15 +141,27 @@ namespace HR_KD.Controllers
                     });
 
                     _context.SaveChanges();
+                    transaction.Commit();
                     savedCount++;
+                    try
+                    {
+                        _emailService.SendEmail(dto.Email, "Kích hoạt tài khoản nhân sự",
+                            $"Tài khoản: {System.Net.WebUtility.HtmlEncode(username)}<br>Mật khẩu tạm: {pass}<br>Chọn Đặt mật khẩu lần đầu trên trang đăng nhập trong vòng 24 giờ.");
+                    }
+                    catch (Exception ex)
+                    {
+                        activationEmailsFailed++;
+                        _logger.LogError(ex, "Không gửi được thư kích hoạt sau khi nhập nhân viên {EmployeeId}.", nv.MaNv);
+                    }
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"❌ Lỗi dòng {dto.RowIndex}: {ex.Message}");
+                    _context.ChangeTracker.Clear();
+                    _logger.LogWarning(ex, "Không thể nhập nhân viên tại dòng {RowIndex}.", dto.RowIndex);
                 }
             }
 
-            return Json(new { success = true, message = $"Đã lưu {savedCount} nhân viên thành công." });
+            return Json(new { success = true, message = $"Đã lưu {savedCount} nhân viên. Số thư kích hoạt gửi lỗi: {activationEmailsFailed}." });
         }
         #endregion
     }

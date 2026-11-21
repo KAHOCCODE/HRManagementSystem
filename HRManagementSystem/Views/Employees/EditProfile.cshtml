@@ -1,77 +1,99 @@
 @model HR_KD.Models.EmployeeProfile
 @{
+    Layout = "~/Views/Shared/_ThemeLayout.cshtml";
     ViewData["Title"] = "Hồ sơ nhân viên";
 }
-<link rel="stylesheet" href="~/css/organization.css" asp-append-version="true" />
 
-<div class="organization-page">
-    <nav class="organization-links" aria-label="Quản lý nhân viên">
-        <a asp-action="Index">Danh sách nhân viên</a>
-        <a asp-action="Organization">Sơ đồ tổ chức</a>
-        <a asp-action="SetupContracts" asp-route-maNv="@Model.Id">Hợp đồng</a>
-        @if (User.IsInRole("DIRECTOR"))
-        {
-            <a asp-controller="Worksites" asp-action="Assign" asp-route-employeeId="@Model.Id">Nơi làm việc</a>
-        }
-    </nav>
-    <div class="organization-heading">
-        <img class="organization-photo" src="@(Model.AvatarUrl ?? "/images/employees/Avatar.jpg")" alt="" width="66" height="66">
-        <div>
-            <h1>@Model.Name</h1>
-            <p>Mã nhân viên @Model.Id</p>
+@section Styles {
+    <link rel="stylesheet" href="~/css/organization.css" asp-append-version="true" />
+}
+
+<div class="container-fluid py-4">
+    <section class="card shadow border-0">
+        <header class="card-header bg-primary text-white staff-card-header">
+            <h1 class="h4 mb-0">Hồ sơ nhân viên</h1>
+            <nav class="staff-actions" aria-label="Quản lý nhân viên">
+                <a asp-action="Index" class="btn btn-light btn-sm"><i class="fa fa-arrow-left" aria-hidden="true"></i> Danh sách</a>
+                <a asp-action="Organization" class="btn btn-light btn-sm">Sơ đồ tổ chức</a>
+                <a asp-action="SetupContracts" asp-route-maNv="@Model.Id" class="btn btn-light btn-sm">Hợp đồng</a>
+                @if (User.IsInRole("DIRECTOR"))
+                {
+                    <a asp-controller="Worksites" asp-action="Assign" asp-route-employeeId="@Model.Id" class="btn btn-light btn-sm">Nơi làm việc</a>
+                }
+            </nav>
+        </header>
+        <div class="card-body">
+            <div class="staff-profile-heading">
+                <img class="organization-photo" src="@HR_KD.Services.EmployeePhotos.DisplayUrl(Model.AvatarUrl)" alt="" width="64" height="64">
+                <div>
+                    <h2 class="h5 mb-1">@Model.Name</h2>
+                    <p class="mb-0 text-muted">Mã nhân viên @Model.Id</p>
+                </div>
+            </div>
+            @if (TempData["ProfileUpdated"] is string notice)
+            {
+                <p class="alert alert-success" role="status">@notice</p>
+            }
+            <form method="post" enctype="multipart/form-data" asp-action="EditProfile" asp-route-id="@Model.Id">
+                <input type="hidden" asp-for="Id">
+                <div asp-validation-summary="ModelOnly" class="text-danger" role="alert"></div>
+                <fieldset>
+                    <legend class="h6 mb-3">Thông tin cá nhân</legend>
+                    <div class="row">
+                        <div class="form-group col-md-6">
+                            <label asp-for="Name"></label>
+                            <input asp-for="Name" class="form-control" required>
+                            <span asp-validation-for="Name" class="text-danger"></span>
+                        </div>
+                        <div class="form-group col-md-6">
+                            <label asp-for="Email"></label>
+                            <input asp-for="Email" class="form-control">
+                            <span asp-validation-for="Email" class="text-danger"></span>
+                        </div>
+                        <div class="form-group col-md-6">
+                            <label asp-for="Phone"></label>
+                            <input asp-for="Phone" class="form-control">
+                            <span asp-validation-for="Phone" class="text-danger"></span>
+                        </div>
+                        <div class="form-group col-md-6">
+                            <label asp-for="Address"></label>
+                            <input asp-for="Address" class="form-control">
+                            <span asp-validation-for="Address" class="text-danger"></span>
+                        </div>
+                        <div class="form-group col-md-6">
+                            <label asp-for="Photo"></label>
+                            <input asp-for="Photo" type="file" class="form-control-file" accept="image/jpeg,image/png,image/webp">
+                            <span asp-validation-for="Photo" class="text-danger"></span>
+                        </div>
+                    </div>
+                </fieldset>
+
+                <fieldset class="border-top pt-3 mt-2">
+                    <legend class="h6 mb-3">Thông tin công việc</legend>
+                    <div class="row">
+                        <div class="form-group col-md-6 col-xl-4">
+                            <label asp-for="DepartmentId"></label>
+                            <select asp-for="DepartmentId" asp-items="ViewBag.Departments" class="form-control"></select>
+                            <span asp-validation-for="DepartmentId" class="text-danger"></span>
+                        </div>
+                        <div class="form-group col-md-6 col-xl-4">
+                            <label asp-for="PositionId"></label>
+                            <select asp-for="PositionId" asp-items="ViewBag.Positions" class="form-control"></select>
+                            <span asp-validation-for="PositionId" class="text-danger"></span>
+                        </div>
+                        <div class="form-group col-md-6 col-xl-4">
+                            <label asp-for="ManagerId"></label>
+                            <select asp-for="ManagerId" asp-items="ViewBag.Managers" class="form-control">
+                                <option value="">Chưa gán quản lý</option>
+                            </select>
+                            <span asp-validation-for="ManagerId" class="text-danger"></span>
+                        </div>
+                    </div>
+                </fieldset>
+                <div class="staff-actions pt-3 border-top">
+                    <button type="submit" class="btn btn-primary">Lưu hồ sơ</button>
+                </div>
+            </form>
         </div>
-    </div>
-    @if (TempData["ProfileUpdated"] is string notice)
-    {
-        <p class="alert alert-success" role="status">@notice</p>
-    }
-    <form class="organization-profile" method="post" enctype="multipart/form-data" asp-action="EditProfile" asp-route-id="@Model.Id">
-        <input type="hidden" asp-for="Id">
-        <div asp-validation-summary="ModelOnly" class="text-danger" role="alert"></div>
-        <div class="organization-fields">
-            <div class="form-group">
-                <label asp-for="Name"></label>
-                <input asp-for="Name" class="form-control" required>
-                <span asp-validation-for="Name" class="text-danger"></span>
-            </div>
-            <div class="form-group">
-                <label asp-for="Email"></label>
-                <input asp-for="Email" class="form-control">
-                <span asp-validation-for="Email" class="text-danger"></span>
-            </div>
-            <div class="form-group">
-                <label asp-for="Phone"></label>
-                <input asp-for="Phone" class="form-control">
-                <span asp-validation-for="Phone" class="text-danger"></span>
-            </div>
-            <div class="form-group">
-                <label asp-for="Address"></label>
-                <input asp-for="Address" class="form-control">
-                <span asp-validation-for="Address" class="text-danger"></span>
-            </div>
-            <div class="form-group">
-                <label asp-for="DepartmentId"></label>
-                <select asp-for="DepartmentId" asp-items="ViewBag.Departments" class="form-control"></select>
-                <span asp-validation-for="DepartmentId" class="text-danger"></span>
-            </div>
-            <div class="form-group">
-                <label asp-for="PositionId"></label>
-                <select asp-for="PositionId" asp-items="ViewBag.Positions" class="form-control"></select>
-                <span asp-validation-for="PositionId" class="text-danger"></span>
-            </div>
-            <div class="form-group">
-                <label asp-for="ManagerId"></label>
-                <select asp-for="ManagerId" asp-items="ViewBag.Managers" class="form-control">
-                    <option value="">Chưa gán quản lý</option>
-                </select>
-                <span asp-validation-for="ManagerId" class="text-danger"></span>
-            </div>
-            <div class="form-group">
-                <label asp-for="Photo"></label>
-                <input asp-for="Photo" type="file" class="form-control" accept="image/jpeg,image/png,image/webp">
-                <span asp-validation-for="Photo" class="text-danger"></span>
-            </div>
-        </div>
-        <button type="submit" class="btn btn-primary">Lưu hồ sơ</button>
-    </form>
+    </section>
 </div>

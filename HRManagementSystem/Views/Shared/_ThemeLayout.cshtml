@@ -1,8 +1,17 @@
 ﻿
 @using HR_KD.Data
-@using Microsoft.AspNetCore.Http
-@inject IHttpContextAccessor HttpContextAccessor
+@using HR_KD.Services
+@using Microsoft.EntityFrameworkCore
 @inject HrDbContext DbContext
+
+@{
+    var accountProfile = User.Identity?.IsAuthenticated == true
+        && int.TryParse(User.FindFirst("MaNV")?.Value, out var employeeId)
+        ? await DbContext.NhanViens.Where(employee => employee.MaNv == employeeId)
+            .Select(employee => new { employee.HoTen, employee.AvatarUrl }).SingleOrDefaultAsync()
+        : null;
+    var accountPhoto = EmployeePhotos.DisplayUrl(accountProfile?.AvatarUrl);
+}
 
 <!DOCTYPE html>
 <html lang="vi">
@@ -13,7 +22,7 @@
     <title>@(ViewData["Title"] ?? "Quản lý nhân sự")</title>
     <link rel="stylesheet" type="text/css" href="~/assets/css/bootstrap.min.css">
     <link rel="stylesheet" type="text/css" href="~/assets/css/font-awesome.min.css">
-    <link rel="stylesheet" type="text/css" href="~/assets/css/style.css">
+    <link rel="stylesheet" type="text/css" href="~/assets/css/style.css" asp-append-version="true">
     @RenderSection("Styles", required: false)
 </head>
 
@@ -29,44 +38,16 @@
             <a id="toggle_btn" href="javascript:void(0);"><i class="fa fa-bars"></i></a>
             <a id="mobile_btn" class="mobile_btn float-left" href="#sidebar"><i class="fa fa-bars"></i></a>
             <ul class="nav user-menu float-right">
-                @{
-                    // Check authentication status
-                    var isLoggedIn = User.Identity.IsAuthenticated;
-                    string hoTen = null;
-
-                    if (isLoggedIn)
-                    {
-                        // Try to get HoTen from session
-                        hoTen = HttpContextAccessor.HttpContext?.Session.GetString("HoTen");
-
-                        if (string.IsNullOrEmpty(hoTen))
-                        {
-                            // Fetch HoTen from database if not in session
-                            var maNv = User.Claims.FirstOrDefault(c => c.Type == "MaNV")?.Value;
-                            if (!string.IsNullOrEmpty(maNv) && int.TryParse(maNv, out var maNvInt))
-                            {
-                                var nhanVien = DbContext.NhanViens.FirstOrDefault(nv => nv.MaNv == maNvInt);
-                                if (nhanVien != null)
-                                {
-                                    hoTen = nhanVien.HoTen;
-                                    // Cache HoTen in session
-                                    HttpContextAccessor.HttpContext?.Session.SetString("HoTen", hoTen);
-                                }
-                            }
-                        }
-                    }
-                }
-
                 <li class="nav-item dropdown has-arrow">
-                    @if (isLoggedIn && !string.IsNullOrEmpty(hoTen))
+                    @if (accountProfile != null)
                     {
                         <!-- Display logged-in user -->
                         <a href="#" class="dropdown-toggle nav-link user-link" data-toggle="dropdown">
                             <span class="user-img">
-                                <img class="rounded-circle" src="~/assets/img/user.jpg" width="40" alt="User">
+                                <img class="rounded-circle account-avatar" src="@accountPhoto" width="24" height="24" alt="">
                                 <span class="status online"></span>
                             </span>
-                            <span>@hoTen</span>
+                            <span>@accountProfile.HoTen</span>
                         </a>
                         <div class="dropdown-menu">
                             <form asp-controller="Account" asp-action="Logout" method="post">
@@ -82,9 +63,18 @@
                 </li>
             </ul>
             <div class="dropdown mobile-user-menu float-right">
-                <a href="#" class="nav-link dropdown-toggle" data-toggle="dropdown" aria-expanded="false"><i class="fa fa-ellipsis-v"></i></a>
+                <a href="#" class="nav-link dropdown-toggle" data-toggle="dropdown" aria-expanded="false" aria-label="Tài khoản">
+                    @if (accountProfile != null)
+                    {
+                        <img class="rounded-circle account-avatar" src="@accountPhoto" width="24" height="24" alt="">
+                    }
+                    else
+                    {
+                        <i class="fa fa-ellipsis-v" aria-hidden="true"></i>
+                    }
+                </a>
                 <div class="dropdown-menu dropdown-menu-right">
-                    @if (isLoggedIn && !string.IsNullOrEmpty(hoTen))
+                    @if (accountProfile != null)
                     {
                         <form asp-controller="Account" asp-action="Logout" method="post">
                             <button type="submit" class="dropdown-item">Đăng xuất</button>

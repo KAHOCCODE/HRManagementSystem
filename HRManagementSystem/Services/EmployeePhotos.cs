@@ -4,6 +4,8 @@ internal static class EmployeePhotos
 {
     internal const string DefaultUrl = "/images/employees/Avatar.jpg";
 
+    internal static string DisplayUrl(string? url) => string.IsNullOrWhiteSpace(url) ? DefaultUrl : url;
+
     public static bool IsValid(IFormFile photo)
     {
         if (photo.Length is < 12 or > (5 * 1024 * 1024))

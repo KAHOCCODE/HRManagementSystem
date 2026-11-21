@@ -778,8 +778,10 @@ textarea.form-control {
 	display: inline-block;
 	position: relative;
 }
-.header .user-img img {
+.header .account-avatar {
 	width: 24px;
+	height: 24px;
+	object-fit: cover;
 }
 .user-img .status {
 	border: 2px solid #fff;
@@ -894,10 +896,10 @@ textarea.form-control {
 	font-size: 24px;
 	height: 50px;
 	line-height: 50px;
-	padding: 0 20px;
+	padding: 0;
 	position: absolute;
 	right: 0;
-	text-align: right;
+	text-align: center;
 	top: 0;
 	width: 50px;
 	z-index: 10;

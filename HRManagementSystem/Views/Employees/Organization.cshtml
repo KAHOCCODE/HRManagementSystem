@@ -1,37 +1,47 @@
 @model HR_KD.Models.OrganizationChartPage
 @{
+    Layout = "~/Views/Shared/_ThemeLayout.cshtml";
     ViewData["Title"] = "Sơ đồ tổ chức";
 }
-<link rel="stylesheet" href="~/css/organization.css" asp-append-version="true" />
 
-<section class="organization-page">
-    <header class="organization-heading organization-top">
-        <div>
-            <h1>Sơ đồ tổ chức</h1>
-            <p>@Model.Name <span aria-hidden="true">·</span> @Model.EmployeeCount nhân viên</p>
-        </div>
-        @if (User.IsInRole("DIRECTOR") || User.IsInRole("EMPLOYEE_MANAGER"))
-        {
-            <a asp-action="Index" class="btn btn-outline-primary">Quản lý nhân viên</a>
-        }
-    </header>
-    @if (Model.Roots.Count == 0)
-    {
-        <p class="organization-empty">Chưa có hồ sơ nhân viên.</p>
-    }
-    else
-    {
-        <label for="organization-search">Tìm người, phòng ban hoặc nơi làm việc</label>
-        <input id="organization-search" class="form-control organization-search" type="search">
-        <p id="organization-empty" class="organization-empty" hidden role="status">Không tìm thấy nhân viên phù hợp.</p>
-        <ul id="organization-tree" class="organization-forest">
-            @foreach (var root in Model.Roots)
+@section Styles {
+    <link rel="stylesheet" href="~/css/organization.css" asp-append-version="true" />
+}
+
+<div class="container-fluid py-4">
+    <section class="card shadow border-0">
+        <header class="card-header bg-primary text-white staff-card-header">
+            <h1 class="h4 mb-0">Sơ đồ tổ chức</h1>
+            @if (User.IsInRole("DIRECTOR") || User.IsInRole("EMPLOYEE_MANAGER"))
             {
-                <partial name="_OrganizationMember" model="root" />
+                <a asp-action="Index" class="btn btn-light btn-sm"><i class="fa fa-arrow-left" aria-hidden="true"></i> Quản lý nhân viên</a>
             }
-        </ul>
-    }
-</section>
+        </header>
+        <div class="card-body">
+            <h2 class="h5 mb-1">@Model.Name</h2>
+            <p class="text-muted">@Model.EmployeeCount nhân viên</p>
+            @if (Model.Roots.Count == 0)
+            {
+                <p class="text-muted mb-0">Chưa có hồ sơ nhân viên.</p>
+            }
+            else
+            {
+                <div class="form-group organization-search">
+                    <label for="organization-search">Tìm người, phòng ban hoặc nơi làm việc</label>
+                    <input id="organization-search" class="form-control" type="search">
+                </div>
+                <p id="organization-empty" class="text-muted" hidden role="status">Không tìm thấy nhân viên phù hợp.</p>
+                <ul id="organization-tree" class="organization-forest">
+                    @foreach (var root in Model.Roots)
+                    {
+                        <partial name="_OrganizationMember" model="root" />
+                    }
+                </ul>
+            }
+        </div>
+    </section>
+</div>
+
 @section Scripts {
     <script src="~/js/organization.js" asp-append-version="true"></script>
 }

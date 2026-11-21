@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 
 namespace HR_KD.Controllers
 {
@@ -8,12 +9,12 @@ namespace HR_KD.Controllers
         {
             return View();
         }
-        //chỉ Director mới có quyền truy cập vào trang này
-
+        [Authorize(Roles = "DIRECTOR")]
         public IActionResult Director()
         {
             return View();
         }
+        [Authorize(Roles = "EMPLOYEE_MANAGER")]
         public IActionResult Manager()
         {
             return View();

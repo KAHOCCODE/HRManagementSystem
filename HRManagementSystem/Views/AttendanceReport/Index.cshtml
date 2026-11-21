@@ -230,9 +230,8 @@
                         flatpickr(monthPicker, {
                             dateFormat: "Y-m",
                             defaultDate: new Date(),
-                            onChange: function (selectedDates) {
+                            onChange: function (selectedDates, monthYear) {
                                 if (selectedDates.length > 0) {
-                                    const monthYear = selectedDates[0].toISOString().slice(0, 7);
                                     loadReport(monthYear);
                                     calendar.gotoDate(selectedDates[0]);
                                 }
@@ -304,7 +303,7 @@
                                 });
                         }
 
-                        loadReport(new Date().toISOString().slice(0, 7));
+                        loadReport(flatpickr.formatDate(new Date(), "Y-m"));
                     });
                 })();
             </script>

@@ -1,6 +1,7 @@
 ﻿
 using ClosedXML.Excel;
 using HR_KD.Data;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System;
@@ -33,6 +34,7 @@ namespace HR_KD.ApiControllers
             return User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value;
         }
 
+        [Authorize(Roles = "DIRECTOR")]
         [HttpGet("GetDepartmentsManager")]
         public IActionResult GetDepartments()
         {
@@ -43,6 +45,7 @@ namespace HR_KD.ApiControllers
             return Ok(departments);
         }
 
+        [Authorize(Roles = "EMPLOYEE_MANAGER")]
         [HttpGet("GetDepartmentsManagerIndex")]
         public IActionResult GetDepartmentsIndex()
         {
@@ -65,6 +68,7 @@ namespace HR_KD.ApiControllers
             return Ok(departments);
         }
 
+        [Authorize(Roles = "DIRECTOR,EMPLOYEE_MANAGER")]
         [HttpGet("GetPositionsManager")]
         public IActionResult GetPositions()
         {
@@ -75,6 +79,7 @@ namespace HR_KD.ApiControllers
             return Ok(positions);
         }
 
+        [Authorize(Roles = "DIRECTOR,EMPLOYEE_MANAGER")]
         [HttpGet("GetEmployeesManager")]
         public IActionResult GetEmployees(int? maPhongBan, int? maChucVu)
         {
@@ -288,6 +293,7 @@ namespace HR_KD.ApiControllers
             }
         }
 
+        [Authorize(Roles = "DIRECTOR")]
         [HttpGet("GetAllEmployeesMonthlyReport")]
         public async Task<IActionResult> GetAllEmployeesMonthlyReport(string? monthYear = null, string? year = null, int? maPhongBan = null, int? maChucVu = null)
         {
@@ -453,6 +459,7 @@ namespace HR_KD.ApiControllers
                 });
             }
         }
+        [Authorize(Roles = "DIRECTOR")]
         [HttpGet("ExportMonthlyReport")]
         public async Task<IActionResult> ExportMonthlyReport(string? monthYear = null, int? maPhongBan = null, int? maChucVu = null)
         {
@@ -653,6 +660,7 @@ namespace HR_KD.ApiControllers
                 });
             }
         }
+        [Authorize(Roles = "EMPLOYEE_MANAGER")]
         [HttpGet("GetManagerDepartmentReport")]
         public async Task<IActionResult> GetManagerDepartmentReport(string? monthYear = null)
         {
@@ -817,6 +825,7 @@ namespace HR_KD.ApiControllers
                 });
             }
         }
+        [Authorize(Roles = "EMPLOYEE_MANAGER")]
         [HttpGet("ExportMonthlyManagerReport")]
         public async Task<IActionResult> ExportMonthlyManagerReport(string? monthYear = null, int? maPhongBan = null, int? maChucVu = null)
         {
@@ -828,19 +837,12 @@ namespace HR_KD.ApiControllers
 
             try
             {
-                // If maPhongBan is not provided, fetch it from the manager's department
-                if (!maPhongBan.HasValue)
-                {
-                    maPhongBan = await _context.NhanViens
-                        .Where(nv => nv.MaNv == maNv.Value)
-                        .Select(nv => nv.MaPhongBan)
-                        .FirstOrDefaultAsync();
-
-                    if (maPhongBan == 0)
-                    {
-                        return NotFound(new { success = false, message = "Không tìm thấy phòng ban của nhân viên." });
-                    }
-                }
+                var department = await _context.NhanViens.Where(nv => nv.MaNv == maNv.Value)
+                    .Select(nv => nv.MaPhongBan).FirstOrDefaultAsync();
+                if (department == 0)
+                    return NotFound(new { message = "Không tìm thấy phòng ban của nhân viên." });
+                if (maPhongBan.HasValue && maPhongBan.Value != department)
+                    return Forbid();
 
                 // Parse month and year
                 DateTime selectedMonth = string.IsNullOrEmpty(monthYear)
@@ -854,7 +856,7 @@ namespace HR_KD.ApiControllers
 
                 // Fetch employees based on filters
                 var employeesQuery = _context.NhanViens.AsQueryable();
-                employeesQuery = employeesQuery.Where(nv => nv.MaPhongBan == maPhongBan.Value);
+                employeesQuery = employeesQuery.Where(nv => nv.MaPhongBan == department);
                 if (maChucVu.HasValue)
                 {
                     employeesQuery = employeesQuery.Where(nv => nv.MaChucVu == maChucVu.Value);

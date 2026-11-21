@@ -217,9 +217,8 @@
                                     flatpickr(monthPicker, {
                                         dateFormat: "Y-m",
                                         defaultDate: new Date(),
-                                        onChange: function (selectedDates) {
+                                        onChange: function (selectedDates, monthYear) {
                                             if (selectedDates.length > 0) {
-                                                const monthYear = selectedDates[0].toISOString().slice(0, 7);
                                                 console.log('Month selected:', monthYear);
                                                 loadReport(monthYear);
                                             }
@@ -240,7 +239,7 @@
                                             maPhongBan = response.data.maPhongBan;
                                             console.log('Manager department loaded:', maPhongBan);
                                             // Load initial report after getting department
-                                            loadReport(new Date().toISOString().slice(0, 7));
+                                            loadReport(flatpickr.formatDate(new Date(), "Y-m"));
                                         } else {
                                             throw new Error('Không tìm thấy phòng ban của quản lý.');
                                         }
@@ -307,7 +306,7 @@
                                     console.log('Position filter selected:', maChucVu || 'Tất cả');
 
                                     try {
-                                            
+
                                                 console.log('Position filter selected:', maChucVu || 'Tất cả');
                                                 const response = await axios.get('/api/AttendanceReportApi/GetManagerDepartmentReport', {
                                                     params: {
@@ -404,7 +403,7 @@
                                     }
 
                                     const maChucVu = document.getElementById('positionFilter').value;
-                                    const monthYear = document.getElementById('monthPicker').value || new Date().toISOString().slice(0, 7);
+                                    const monthYear = document.getElementById('monthPicker').value || flatpickr.formatDate(new Date(), "Y-m");
 
                                     console.log('Exporting report with params:', { monthYear, maPhongBan, maChucVu });
                                     let url = `/api/AttendanceReportApi/ExportMonthlyManagerReport?monthYear=${encodeURIComponent(monthYear)}&maPhongBan=${encodeURIComponent(maPhongBan)}`;
@@ -418,7 +417,7 @@
 
                                 // Filter button click
                                 document.getElementById('filterBtn').addEventListener('click', function () {
-                                    const monthYear = document.getElementById('monthPicker').value || new Date().toISOString().slice(0, 7);
+                                    const monthYear = document.getElementById('monthPicker').value || flatpickr.formatDate(new Date(), "Y-m");
                                     console.log('Filter button clicked, loading report for:', monthYear);
                                     loadReport(monthYear);
                                 });

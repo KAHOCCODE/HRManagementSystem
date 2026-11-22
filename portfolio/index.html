@@ -8,6 +8,8 @@
   <title>HR Management System · Đỗ Hoàng Ka</title>
   <link rel="stylesheet" href="./style.css">
   <script defer src="./demo.js"></script>
+  <script defer src="./catalog-data.js"></script>
+  <script defer src="./catalog.js"></script>
 </head>
 <body>
   <a class="skip" href="#main">Đến nội dung</a>
@@ -76,22 +78,32 @@
   <section class="gallery wrap" id="screens" aria-labelledby="screens-title">
     <div class="section-header">
       <h2 id="screens-title">Giao diện ứng dụng</h2>
-      <p>Ảnh chụp bản ASP.NET Core đang chạy với dữ liệu mẫu.</p>
+      <p>38 ảnh từ bản ASP.NET Core chạy với dữ liệu mẫu, gồm 36 màn hình menu và 2 màn hình mở từ phần nhân viên.</p>
     </div>
-    <div class="screens-grid">
-      <figure>
-        <a href="./screenshots/employees.jpg" target="_blank" rel="noopener">
-          <img src="./screenshots/employees.jpg" width="1348" height="926" loading="lazy" alt="Mở ảnh danh sách nhân viên, có bộ lọc phòng ban, chức vụ và nơi làm việc">
-        </a>
-        <figcaption><strong>Danh sách nhân viên</strong><span>Tìm và lọc theo phòng ban, chức vụ hoặc nơi làm việc.</span></figcaption>
-      </figure>
-      <figure>
-        <a href="./screenshots/organization.jpg" target="_blank" rel="noopener">
-          <img src="./screenshots/organization.jpg" width="1348" height="926" loading="lazy" alt="Mở ảnh sơ đồ phân cấp đã lọc theo chi nhánh Cần Giờ">
-        </a>
-        <figcaption><strong>Sơ đồ tổ chức</strong><span>Lọc theo chi nhánh Cần Giờ và xem quan hệ báo cáo.</span></figcaption>
-      </figure>
+    <div class="catalog-controls">
+      <label>Nhóm chức năng<select id="catalog-group">
+        <option value="">Tất cả chức năng</option>
+        <option value="overview">Tổng quan</option>
+        <option value="people">Nhân viên và tổ chức</option>
+        <option value="attendance">Chấm công và làm bù</option>
+        <option value="leave">Nghỉ phép và ngày lễ</option>
+        <option value="payroll">Bảng lương</option>
+        <option value="training">Đào tạo</option>
+        <option value="reports">Báo cáo</option>
+        <option value="settings">Cài đặt và quản trị</option>
+      </select></label>
+      <label>Vai trò có thể mở<select id="catalog-role">
+        <option value="">Tất cả vai trò</option>
+        <option value="employee">Nhân viên</option>
+        <option value="manager">Quản lý trực tiếp</option>
+        <option value="hr">Nhân sự</option>
+        <option value="payroll">Kế toán lương</option>
+        <option value="director">Giám đốc</option>
+      </select></label>
+      <p id="catalog-count" aria-live="polite"></p>
     </div>
+    <div class="screens-grid" id="catalog-results"></div>
+    <noscript><p>Bật JavaScript để dùng bộ lọc, hoặc mở <a href="https://github.com/KAHOCCODE/HRManagementSystem/tree/fix/hr-role-audit/portfolio#danh-mục-chức-năng">danh mục chức năng trên GitHub</a>.</p></noscript>
   </section>
 
   <section class="technical wrap" id="technical" aria-labelledby="technical-title">

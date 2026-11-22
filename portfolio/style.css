@@ -145,3 +145,16 @@ h1 span { color: var(--lilac); }
   nav a { font-size: .8rem; }
   .signature { font-size: .87rem; }
 }
+
+.catalog-controls { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; padding: 13px 16px; margin-bottom: 16px; border: 1px solid var(--line); border-radius: 10px; background: white; }
+.catalog-controls label { display: grid; gap: 4px; font-size: .9rem; font-weight: 650; }
+.catalog-controls select { min-height: 44px; padding: 7px 10px; color: var(--ink); border: 1px solid #bfc6dc; border-radius: 7px; background: #fdfdff; }
+.catalog-controls p { margin: 0 0 8px auto; color: var(--muted); }
+.screens-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+@media (max-width: 960px) {
+  .screens-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 580px) {
+  .screens-grid { grid-template-columns: 1fr; }
+  .catalog-controls p { width: 100%; margin: 0; }
+}

@@ -23,6 +23,13 @@ The audited SQLite demo was exercised with five sample roles across 81 page visi
 
 Use the [local demo instructions below](#demo-hosting-on-render) for the ASP.NET Core application. The walkthrough is independent of the hosted HR instance.
 
+The portfolio source and screenshots are available in [`portfolio/`](portfolio/). To view the portfolio locally, run `python -m http.server 8000 --directory portfolio` from the repository root.
+
+| Employee directory | Organization chart |
+| --- | --- |
+| ![Employee directory on synthetic data](portfolio/screenshots/employees.jpg) | ![Organization chart filtered to the Cần Giờ site](portfolio/screenshots/organization.jpg) |
+
+
 
 ---
 

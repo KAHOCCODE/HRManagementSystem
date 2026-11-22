@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Dự án HR Management System của nhóm có Đỗ Hoàng Ka. Trải nghiệm luồng duyệt bảng lương và xem cách triển khai trên ASP.NET Core.">
+  <meta name="theme-color" content="#0e1223">
+  <title>HR Management System · Đỗ Hoàng Ka</title>
+  <link rel="stylesheet" href="./style.css">
+  <script defer src="./demo.js"></script>
+</head>
+<body>
+  <a class="skip" href="#main">Đến nội dung</a>
+  <div class="intro">
+    <header class="topbar wrap">
+      <a class="signature" href="#main"><span aria-hidden="true">HK</span> Đỗ Hoàng Ka</a>
+      <nav aria-label="Điều hướng">
+        <a href="#demo">Demo</a>
+        <a href="#screens">Giao diện</a>
+        <a href="#technical">Kỹ thuật</a>
+        <a class="nav-source" href="https://github.com/KAHOCCODE/HRManagementSystem/tree/fix/hr-role-audit">GitHub</a>
+      </nav>
+    </header>
+
+    <main class="hero wrap" id="main">
+      <section class="project" aria-labelledby="title">
+        <p class="eyebrow">Dự án nhóm · HR Management System</p>
+        <h1 id="title">Hệ thống<br>quản lý <span>nhân sự</span></h1>
+        <p class="lead">Hồ sơ, chấm công và bảng lương cho doanh nghiệp nhiều chi nhánh.</p>
+        <div class="actions">
+          <a class="button primary" href="#advance">Thử duyệt phiếu</a>
+          <a class="button outlined" href="https://github.com/KAHOCCODE/HRManagementSystem/tree/fix/hr-role-audit">Xem mã nguồn</a>
+        </div>
+        <ul class="stack" aria-label="Công nghệ">
+          <li>C#</li><li>ASP.NET Core MVC</li><li>EF Core</li><li>SQL Server / SQLite</li>
+        </ul>
+      </section>
+
+      <section class="console" id="demo" aria-labelledby="demo-title">
+        <div class="console-top">
+          <h2 id="demo-title"><span class="app-icon" aria-hidden="true"><i></i></span> Bảng lương</h2>
+          <span class="sample"><span aria-hidden="true"></span> Dữ liệu mẫu</span>
+        </div>
+        <div class="console-body">
+          <div class="console-heading">
+            <div><h3>Duyệt phiếu lương</h3><p>Kỳ lương tháng 10/2026</p></div>
+            <button class="text-button" type="button" id="restart">Làm lại</button>
+          </div>
+          <ol class="steps" aria-label="Các bước duyệt lương" id="steps">
+            <li aria-current="step"><span class="step-dot" aria-hidden="true"></span>Nhân viên</li>
+            <li><span class="step-dot" aria-hidden="true"></span>Quản lý</li>
+            <li><span class="step-dot" aria-hidden="true"></span>Kế toán</li>
+            <li><span class="step-dot" aria-hidden="true"></span>Giám đốc</li>
+            <li><span class="step-dot" aria-hidden="true"></span>Gửi phiếu</li>
+          </ol>
+          <div class="pay-card">
+            <div class="person"><span class="avatar" aria-hidden="true">AT</span><div><strong>An Trần</strong><p>Điều phối vận tải · Thủ Đức</p></div></div>
+            <span class="status" id="status">Chờ nhân viên xác nhận</span>
+          </div>
+          <p id="transition-note" class="transition" aria-live="polite">Nhân viên kiểm tra phiếu của mình trước khi xác nhận.</p>
+          <div class="actions controls">
+            <button class="button primary" type="button" id="advance">Xác nhận phiếu</button>
+            <button class="button secondary" type="button" id="send-back" hidden>Trả lại</button>
+          </div>
+        </div>
+        <div class="role-panel">
+          <label for="role">Quyền theo vai trò</label>
+          <select id="role"><option value="employee">Nhân viên</option><option value="manager">Quản lý trực tiếp</option><option value="payroll">Kế toán lương</option><option value="director">Giám đốc</option><option value="hr">Nhân sự</option></select>
+          <p id="role-description" aria-live="polite">Xem phiếu lương của mình, xác nhận hoặc yêu cầu chỉnh sửa.</p>
+        </div>
+      </section>
+      <p class="demo-caption">Mô phỏng trên trình duyệt bằng dữ liệu hư cấu. Mở trực tiếp, không cần tài khoản.</p>
+    </main>
+  </div>
+
+  <section class="gallery wrap" id="screens" aria-labelledby="screens-title">
+    <div class="section-header">
+      <h2 id="screens-title">Giao diện ứng dụng</h2>
+      <p>Ảnh chụp bản ASP.NET Core đang chạy với dữ liệu mẫu.</p>
+    </div>
+    <div class="screens-grid">
+      <figure>
+        <a href="./screenshots/employees.jpg" target="_blank" rel="noopener">
+          <img src="./screenshots/employees.jpg" width="1348" height="926" loading="lazy" alt="Mở ảnh danh sách nhân viên, có bộ lọc phòng ban, chức vụ và nơi làm việc">
+        </a>
+        <figcaption><strong>Danh sách nhân viên</strong><span>Tìm và lọc theo phòng ban, chức vụ hoặc nơi làm việc.</span></figcaption>
+      </figure>
+      <figure>
+        <a href="./screenshots/organization.jpg" target="_blank" rel="noopener">
+          <img src="./screenshots/organization.jpg" width="1348" height="926" loading="lazy" alt="Mở ảnh sơ đồ phân cấp đã lọc theo chi nhánh Cần Giờ">
+        </a>
+        <figcaption><strong>Sơ đồ tổ chức</strong><span>Lọc theo chi nhánh Cần Giờ và xem quan hệ báo cáo.</span></figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section class="technical wrap" id="technical" aria-labelledby="technical-title">
+    <div class="section-header">
+      <h2 id="technical-title">Bên trong dự án</h2>
+      <p>Từ thao tác trên giao diện đến quy tắc được kiểm tra trong mã nguồn ASP.NET Core.</p>
+    </div>
+    <div class="notes-grid">
+      <article>
+        <h3>Phân quyền và duyệt lương</h3>
+        <p>Nhân viên truy cập phiếu của mình. Quản lý rà soát cấp dưới trực tiếp. Kế toán và giám đốc duyệt hoặc trả lại theo trạng thái.</p>
+        <a href="https://github.com/KAHOCCODE/HRManagementSystem/blob/fix/hr-role-audit/HRManagementSystem/Authorization/PayrollAccess.cs">Xem mã phân quyền</a>
+      </article>
+      <article>
+        <h3>Nhập hồ sơ từ Excel</h3>
+        <p>Xem trước, kiểm tra từng dòng và gán chi nhánh, quản lý trực tiếp. Hàng lỗi được giữ lại để sửa sau khi lưu hàng hợp lệ.</p>
+        <a href="https://github.com/KAHOCCODE/HRManagementSystem/blob/fix/hr-role-audit/HRManagementSystem/Controllers/EmployeeImportController.cs">Xem luồng nhập Excel</a>
+      </article>
+      <article>
+        <h3>Bảo toàn dữ liệu chấm công</h3>
+        <p>Hủy duyệt lễ giữ lại công thực tế. Kỳ đã có bảng lương được chặn thay đổi lịch lễ để kế toán đối soát.</p>
+        <a href="https://github.com/KAHOCCODE/HRManagementSystem/blob/fix/hr-role-audit/HRManagementSystem/ApiControllers/HolidayManagerApiController.cs">Xem luồng duyệt ngày lễ</a>
+      </article>
+    </div>
+    <details class="project-note">
+      <summary>Phạm vi kiểm thử</summary>
+      <p>Ứng dụng được kiểm tra trên cơ sở dữ liệu mẫu với 81 lượt mở trang theo 5 vai trò. Các luồng gồm nhập Excel, duyệt ngày lễ và duyệt lương. Đổi chi nhánh hoặc mức lương giữa tháng hiện cần kế toán đối soát trước khi tính.</p>
+    </details>
+  </section>
+  <footer class="wrap footer"><span>Đỗ Hoàng Ka</span><a href="https://github.com/KAHOCCODE/HRManagementSystem/tree/fix/hr-role-audit#portfolio-walkthrough">Tài liệu dự án</a></footer>
+</body>
+</html>

@@ -9,6 +9,21 @@ Human Resources Management System is an ASP.NET Core MVC application for managin
 
 The project supports role-based access and hierarchical management workflows for employees, employee managers, line managers, and directors.
 
+## Portfolio walkthrough
+
+[Open the interactive project walkthrough](https://hr-management-do-hoang-ka.lemonyfjord257.chatgpt.site)
+
+This team project includes Đỗ Hoàng Ka. The walkthrough uses synthetic data, opens without an account, and simulates payroll approvals and return paths in the browser. It links to the corresponding ASP.NET Core implementation.
+
+- **Payroll and authorization** — [visibility rules](HRManagementSystem/Authorization/PayrollAccess.cs), [line-manager actions](HRManagementSystem/ApiControllers/PayrollManagerApiController.cs), and [director approvals](HRManagementSystem/ApiControllers/PayrollDirectorApiController.cs).
+- **Excel import** — [preview, row validation, partial saves, worksite and manager assignments](HRManagementSystem/Controllers/EmployeeImportController.cs).
+- **Holiday approval** — [preserve existing attendance and respect payroll period locks](HRManagementSystem/ApiControllers/HolidayManagerApiController.cs).
+
+The audited SQLite demo was exercised with five sample roles across 81 page visits. Workflow checks included Excel import, holiday approval and cancellation, and payroll review, returns and resubmission. Mid-period pay or worksite changes currently stop automated calculation for review.
+
+Use the [local demo instructions below](#demo-hosting-on-render) for the ASP.NET Core application. The walkthrough is independent of the hosted HR instance.
+
+
 ---
 
 ## Table of Contents

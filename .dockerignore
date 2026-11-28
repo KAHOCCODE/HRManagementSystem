@@ -1,9 +1,0 @@
-.git
-**/bin
-**/obj
-**/.vs
-**/.env*
-**/*.db
-**/*.db-*
-**/*.bak
-**/wwwroot/Uploads

@@ -1,6 +1,6 @@
 # Portfolio HR Management System
 
-[Mở bản công khai](https://hr-management-do-hoang-ka.lemonyfjord257.chatgpt.site/#screens)
+[Mở bản công khai](https://kahoccode.github.io/HRManagementSystem/#screens)
 
 Ảnh được chụp từ bản ASP.NET Core chạy với dữ liệu mẫu. Danh mục gồm 36 màn hình có trong menu theo vai trò, cùng hồ sơ và nhập Excel từ phần nhân viên. Luồng duyệt lương ở đầu trang là mô phỏng tương tác.
 

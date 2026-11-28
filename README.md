@@ -11,9 +11,9 @@ The project supports role-based access and hierarchical management workflows for
 
 ## Portfolio walkthrough
 
-[Open the interactive project walkthrough](https://hr-management-do-hoang-ka.lemonyfjord257.chatgpt.site)
+[Open the interactive project walkthrough](https://kahoccode.github.io/HRManagementSystem)
 
-This team project includes Đỗ Hoàng Ka. The walkthrough uses synthetic data, opens without an account, and simulates payroll approvals and return paths in the browser. It links to the corresponding ASP.NET Core implementation.
+This team project includes Đỗ Hoàng Ka. The walkthrough opens without an account. Five role tabs guide visitors through the application using screenshots captured with synthetic data. A separate interactive example simulates payroll approvals and return paths. It links to the corresponding ASP.NET Core implementation.
 
 - **Payroll and authorization** — [visibility rules](HRManagementSystem/Authorization/PayrollAccess.cs), [line-manager actions](HRManagementSystem/ApiControllers/PayrollManagerApiController.cs), and [director approvals](HRManagementSystem/ApiControllers/PayrollDirectorApiController.cs).
 - **Excel import** — [preview, row validation, partial saves, worksite and manager assignments](HRManagementSystem/Controllers/EmployeeImportController.cs).

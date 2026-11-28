@@ -50,3 +50,10 @@ function renderCatalog() {
 catalogGroup.addEventListener("change", renderCatalog);
 catalogRole.addEventListener("change", renderCatalog);
 renderCatalog();
+
+const screenArchive = document.querySelector("#screen-archive");
+function openArchiveFromLink() {
+  if (location.hash === "#screens") screenArchive.open = true;
+}
+window.addEventListener("hashchange", openArchiveFromLink);
+openArchiveFromLink();
